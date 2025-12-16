@@ -1,9 +1,14 @@
 /**************************************************
  * SUPABASE CONFIG
  **************************************************/
-const supabaseUrl = 'https://gpnmrtbwyytybdblmtka.supabase.co'
-const supabaseKey = process.env.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwbm1ydGJ3eXl0eWJkYmxtdGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MDIwNTksImV4cCI6MjA4MTQ3ODA1OX0.pGhuP0P0fm8xFmMUy707_i0TKVdE1P_9-bOq9DNWZfI
-const supabase = createClient(supabaseUrl, supabaseKey)
+
+const supabaseUrl = 'https://gpnmrtbwyytybdblmtka.supabase.co';
+const supabaseKey = String.fromEnvironment('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdwbm1ydGJ3eXl0eWJkYmxtdGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MDIwNTksImV4cCI6MjA4MTQ3ODA1OX0.pGhuP0P0fm8xFmMUy707_i0TKVdE1P_9-bOq9DNWZfI');
+
+Future<void> main() async {
+  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
+  runApp(MyApp());
+}
 
 const $ = (id) => document.getElementById(id);
 let currentUser = null;
