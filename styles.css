@@ -1,0 +1,217 @@
+* {
+box-sizing: border-box;
+font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #0f172a;
+  color: #f9fafb;
+}
+
+.topbar {
+  background: #020617;
+  padding: .8rem 1rem;
+  border-bottom: 1px solid #1f2937;
+  text-align: center;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.tabs {
+  display: flex;
+  gap: .25rem;
+  padding: .4rem;
+  background: #111827;
+  border-bottom: 1px solid #1f2937;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tabs button {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: #9ca3af;
+  padding: .6rem;
+  border-radius: .45rem;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: #0b1220;
+  color: #f9fafb;
+  box-shadow: inset 0 -2px 0 #22c55e;
+}
+
+main {
+  padding: 1rem;
+  max-width: 1100px;
+  margin: auto;
+}
+
+.tab {
+  display: none;
+}
+
+.tab.active {
+  display: block;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+form label {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: .6rem;
+  font-size: .85rem;
+  color: #cbd5e1;
+}
+
+input, select, textarea {
+  background: #020617;
+  color: #f9fafb;
+  border: 1px solid #374151;
+  border-radius: .5rem;
+  padding: .45rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  background: #22c55e;
+  border: 1px solid #16a34a;
+  color: #06210f;
+  font-weight: 700;
+  border-radius: .5rem;
+  padding: .45rem .8rem;
+  cursor: pointer;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: .8rem;
+  background: #0b1220;
+  border-radius: .5rem;
+  overflow: hidden;
+}
+
+.table th {
+  background: #1f2937;
+  font-size: .8rem;
+  text-align: left;
+  padding: .45rem;
+  color: #a7b0be;
+}
+
+.table td {
+  padding: .45rem;
+  border-bottom: 1px solid #1f2937;
+  font-size: .85rem;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: .8rem;
+  margin-bottom: .6rem;
+}
+
+#cal-month-label {
+font-weight: 800;
+text-transform: capitalize;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: .35rem;
+  margin-bottom: .8rem;
+}
+
+.cal-cell {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: .45rem;
+  min-height: 3rem;
+  padding: .3rem;
+  text-align: center;
+}
+
+.cal-header {
+  background: transparent;
+  border: none;
+  font-weight: 800;
+  color: #a7b0be;
+}
+
+.cal-empty {
+  background: transparent;
+  border: none;
+}
+
+.cal-day {
+  cursor: pointer;
+}
+
+.cal-day:hover {
+  outline: 1px solid #22c55e;
+}
+
+.has-activities {
+  outline: 1px solid #22c55e;
+}
+
+.cal-day-number {
+  display: block;
+  font-weight: 800;
+}
+
+.cal-day-hours {
+  display: block;
+  font-size: .75rem;
+  color: #22c55e;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 50;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 60;
+}
+
+.modal.hidden,
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal form {
+  background: #020617;
+  border: 1px solid #1f2937;
+  padding: 1rem;
+  border-radius: .6rem;
+  width: min(420px, 90vw);
+}

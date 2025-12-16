@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>Gestionale Treni</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Gestionale Treni</h1>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="calendar" class="active">Calendario</button>
+  <button data-tab="new">Nuova attività</button>
+  <button data-tab="list">Registro treni</button>
+  <button data-tab="settings">Impostazioni</button>
+</nav>
+
+<main>
+
+<section id="tab-calendar" class="tab active">
+  <h2>Calendario attività</h2>
+
+  <div class="calendar-header">
+    <button id="cal-prev">‹</button>
+    <span id="cal-month-label"></span>
+    <button id="cal-next">›</button>
+  </div>
+
+  <div id="calendar-grid" class="calendar-grid"></div>
+
+  <h3 id="cal-day-title">Seleziona un giorno</h3>
+  <p><strong>Totale ore:</strong> <span id="cal-day-hours">0.0</span></p>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Modello</th>
+        <th>Matricola</th>
+        <th>Scadenza</th>
+        <th>Abilitazione</th>
+        <th>Decimi</th>
+        <th>Note</th>
+        <th>Azioni</th>
+      </tr>
+    </thead>
+    <tbody id="cal-day-activities"></tbody>
+  </table>
+</section>
+
+<section id="tab-new" class="tab">
+  <h2>Nuova attività</h2>
+
+  <form id="form-new-activity">
+    <label>Data <input type="date" id="input-date"></label>
+
+    <label>Modello
+      <select id="input-model">
+        <option>E464</option>
+        <option>TAF</option>
+        <option>POP</option>
+        <option>JAZZ</option>
+        <option>ROCK</option>
+      </select>
+    </label>
+
+    <label>Matricola <select id="input-trainId"></select></label>
+    <label>Scadenza <select id="input-scadenza"></select></label>
+    <label>Abilitazione <select id="input-abilitazione"></select></label>
+
+    <label>Decimi <input id="input-timeDeci"></label>
+    <label>Note <textarea id="input-notes"></textarea></label>
+
+    <button type="submit">Salva</button>
+    <span id="save-status"></span>
+  </form>
+</section>
+
+<section id="tab-list" class="tab">
+  <h2>Registro treni</h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Modello</th>
+        <th>Matricola</th>
+        <th>Scadenza</th>
+        <th>Abilitazione</th>
+        <th>Decimi</th>
+        <th>Note</th>
+        <th>Azioni</th>
+      </tr>
+    </thead>
+    <tbody id="activities-table-body"></tbody>
+  </table>
+</section>
+
+<section id="tab-settings" class="tab">
+  <h2>Impostazioni</h2>
+
+  <h3>Matricole</h3>
+  <form id="form-add-trainId">
+    <select id="settings-train-model">
+      <option>E464</option>
+      <option>TAF</option>
+      <option>POP</option>
+      <option>JAZZ</option>
+      <option>ROCK</option>
+    </select>
+    <input id="settings-trainId">
+    <button>Aggiungi</button>
+  </form>
+  <ul id="list-trainIds"></ul>
+
+  <h3>Scadenze</h3>
+  <form id="form-add-scadenza">
+    <input id="settings-scadenza">
+    <button>Aggiungi</button>
+  </form>
+  <ul id="list-scadenze"></ul>
+
+  <h3>Abilitazioni</h3>
+  <form id="form-add-abilitazione">
+    <input id="settings-abilitazione">
+    <button>Aggiungi</button>
+  </form>
+  <ul id="list-abilitazioni"></ul>
+</section>
+
+</main>
+
+<div id="modal-overlay" class="modal-overlay hidden"></div>
+<div id="edit-modal" class="modal hidden">
+  <form id="form-edit-activity">
+    <input type="hidden" id="edit-id">
+    <input type="date" id="edit-date">
+    <input id="edit-timeDeci">
+    <textarea id="edit-notes"></textarea>
+    <button type="submit">Salva</button>
+    <button type="button" id="edit-cancel">Annulla</button>
+  </form>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
