@@ -10,37 +10,48 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
-const db = firebase.firestore();
 
+const authScreen = document.getElementById("auth-screen");
+const app = document.getElementById("app");
+const msg = document.getElementById("auth-msg");
 
-const $ = id => document.getElementById(id);
+authScreen.style.display = "grid";
+app.style.display = "none";
 
-const authScreen = $("auth-screen");
-const app = $("app");
-
+/* AUTH STATE */
 auth.onAuthStateChanged(user => {
   if (user) {
-    authScreen.classList.add("hidden");
-    app.classList.remove("hidden");
+    authScreen.style.display = "none";
+    app.style.display = "block";
+    msg.textContent = "";
   } else {
-    app.classList.add("hidden");
-    authScreen.classList.remove("hidden");
+    app.style.display = "none";
+    authScreen.style.display = "grid";
   }
 });
 
-$("btn-login").onclick = () =>
-auth.signInWithEmailAndPassword(
-  $("auth-email").value,
-                                $("auth-password").value
-).catch(e => $("auth-msg").textContent = e.message);
+/* LOGIN */
+document.getElementById("btn-login").onclick = () => {
+  auth.signInWithEmailAndPassword(
+    document.getElementById("auth-email").value,
+                                  document.getElementById("auth-password").value
+  ).catch(e => msg.textContent = e.message);
+};
 
-$("btn-register").onclick = () =>
-auth.createUserWithEmailAndPassword(
-  $("auth-email").value,
-                                    $("auth-password").value
-).catch(e => $("auth-msg").textContent = e.message);
+/* REGISTER */
+document.getElementById("btn-register").onclick = () => {
+  if (auth.currentUser) {
+    msg.textContent = "Sei già autenticato.";
+    return;
+  }
 
-$("btn-logout").onclick = () => auth.signOut();
+  auth.createUserWithEmailAndPassword(
+    document.getElementById("auth-email").value,
+                                      document.getElementById("auth-password").value
+  ).catch(e => msg.textContent = e.message);
+};
 
-/* Il resto (calendario, impostazioni, CRUD) è volutamente
- *   separato per il prossimo step, così lo testiamo stabile */
+/* LOGOUT */
+document.getElementById("btn-logout").onclick = () => {
+  auth.signOut();
+};
