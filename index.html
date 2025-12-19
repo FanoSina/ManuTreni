@@ -1,136 +1,261 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
   <title>ManuTreni</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-<header class="topbar">
-  <h1>ManuTreni</h1>
-</header>
+  <!-- AUTH -->
+  <section id="auth-screen" class="auth-screen">
+    <div class="card auth-card">
+      <h2>Accesso ManuTreni</h2>
 
-<nav class="tabs">
-  <button data-tab="calendar" class="active">Calendario</button>
-  <button data-tab="new">Nuova attività</button>
-  <button data-tab="registry">Registro</button>
-  <button data-tab="settings">Impostazioni</button>
-</nav>
+      <label>Email</label>
+      <input id="auth-email" type="email" autocomplete="email" placeholder="nome@esempio.it" />
 
-<main>
+      <label>Password</label>
+      <input id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••" />
 
-<!-- CALENDARIO -->
-<section id="tab-calendar" class="tab active">
-  <div class="cal-header">
-    <button id="prev-month">‹</button>
-    <strong id="month-label"></strong>
-    <button id="next-month">›</button>
+      <div class="row">
+        <button id="btn-login" type="button">Accedi</button>
+        <button id="btn-register" type="button" class="secondary">Registrati</button>
+      </div>
+
+      <p id="auth-msg" class="status"></p>
+      <p class="hint">
+        Se ti blocchi qui: controlla in Firebase → Authentication → Sign-in method che Email/Password sia abilitato.
+      </p>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <h1>ManuTreni</h1>
+        <small id="user-email"></small>
+      </div>
+      <button id="btn-logout" class="danger" type="button">Logout</button>
+    </header>
+
+    <nav class="tabs">
+      <button data-tab="calendar" class="active" type="button">Calendario</button>
+      <button data-tab="new" type="button">Nuova attività</button>
+      <button data-tab="registry" type="button">Registro</button>
+      <button data-tab="settings" type="button">Impostazioni</button>
+    </nav>
+
+    <main>
+
+      <!-- CALENDARIO -->
+      <section id="tab-calendar" class="tab active">
+        <div class="cal-header">
+          <button id="cal-prev" type="button">‹</button>
+          <div>
+            <div class="cal-title" id="cal-month-label">—</div>
+            <div class="cal-subtitle">clicca un giorno per vedere/modificare</div>
+          </div>
+          <button id="cal-next" type="button">›</button>
+        </div>
+
+        <div id="calendar-grid" class="calendar-grid"></div>
+
+        <div class="day-summary">
+          <h3 id="cal-day-title">Seleziona un giorno</h3>
+          <p><strong>Totale ore (decimi):</strong> <span id="cal-day-hours">0.0</span></p>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Modello</th>
+                <th>Matricola</th>
+                <th>Scadenza</th>
+                <th>Abilitazione</th>
+                <th>Decimi</th>
+                <th>Note</th>
+                <th>Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="cal-day-activities">
+              <tr><td colspan="7">Nessuna attività</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- NUOVA ATTIVITÀ -->
+      <section id="tab-new" class="tab">
+        <h2>Nuova attività</h2>
+
+        <form id="form-new">
+          <label>Data</label>
+          <input type="date" id="n-date" required />
+
+          <label>Modello</label>
+          <select id="n-model" required></select>
+
+          <label>Matricola</label>
+          <select id="n-train" required></select>
+
+          <label>Scadenza</label>
+          <select id="n-scadenza" required></select>
+
+          <label>Abilitazione</label>
+          <select id="n-abilitazione" required></select>
+
+          <label>Tempo (decimi di ora)</label>
+          <input type="text" id="n-timeDeci" placeholder="es. 0.5, 1.2, 2.0" required />
+
+          <label>Note</label>
+          <textarea id="n-notes" rows="2" placeholder="Note (opzionale)"></textarea>
+
+          <button type="submit">Salva attività</button>
+          <p id="new-msg" class="status"></p>
+          <p class="hint">Le liste Matricole/Scadenze/Abilitazioni si gestiscono in Impostazioni (per modello).</p>
+        </form>
+      </section>
+
+      <!-- REGISTRO -->
+      <section id="tab-registry" class="tab">
+        <h2>Registro treni</h2>
+
+        <div class="filters">
+          <label>Modello
+            <select id="r-filter-model">
+              <option value="">Tutti</option>
+            </select>
+          </label>
+          <label>Matricola
+            <input id="r-filter-train" type="text" placeholder="filtra (contiene)" />
+          </label>
+          <button id="r-apply" type="button">Filtra</button>
+          <button id="r-reset" type="button" class="secondary">Reset</button>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Modello</th>
+              <th>Matricola</th>
+              <th>Scadenza</th>
+              <th>Abilitazione</th>
+              <th>Decimi</th>
+              <th>Note</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="registry-rows"></tbody>
+        </table>
+      </section>
+
+      <!-- IMPOSTAZIONI -->
+      <section id="tab-settings" class="tab">
+        <h2>Impostazioni (per modello)</h2>
+
+        <div class="settings-grid">
+          <div class="card">
+            <h3>Modelli</h3>
+            <div class="row">
+              <input id="s-model-name" type="text" placeholder="E464" />
+              <button id="s-add-model" type="button">Aggiungi</button>
+            </div>
+            <ul id="s-models-list" class="list"></ul>
+            <p class="hint">Puoi eliminare un modello: elimina anche le sue liste (matricole/scadenze/abilitazioni).</p>
+          </div>
+
+          <div class="card">
+            <h3>Matricole</h3>
+            <div class="row">
+              <select id="s-train-model"></select>
+              <input id="s-train-name" type="text" placeholder="464-001" />
+              <button id="s-add-train" type="button">Aggiungi</button>
+            </div>
+            <ul id="s-trains-list" class="list"></ul>
+          </div>
+
+          <div class="card">
+            <h3>Scadenze</h3>
+            <div class="row">
+              <select id="s-scad-model"></select>
+              <input id="s-scad-name" type="text" placeholder="SCMT mensile" />
+              <button id="s-add-scad" type="button">Aggiungi</button>
+            </div>
+            <ul id="s-scads-list" class="list"></ul>
+          </div>
+
+          <div class="card">
+            <h3>Abilitazioni</h3>
+            <div class="row">
+              <select id="s-abil-model"></select>
+              <input id="s-abil-name" type="text" placeholder="VT3" />
+              <button id="s-add-abil" type="button">Aggiungi</button>
+            </div>
+            <ul id="s-abils-list" class="list"></ul>
+          </div>
+        </div>
+      </section>
+
+    </main>
   </div>
 
-  <div id="calendar-grid" class="calendar-grid"></div>
+  <!-- MODAL EDIT -->
+  <div id="modal-overlay" class="modal-overlay hidden"></div>
+  <div id="edit-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Modifica attività</h2>
 
-  <h3 id="day-title">Seleziona un giorno</h3>
-  <p>Totale ore: <strong id="day-total">0.0</strong></p>
+      <form id="form-edit">
+        <input type="hidden" id="e-id" />
 
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Modello</th>
-        <th>Matricola</th>
-        <th>Scadenza</th>
-        <th>Abilitazione</th>
-        <th>Ore</th>
-        <th>Azioni</th>
-      </tr>
-    </thead>
-    <tbody id="day-body">
-      <tr><td colspan="6">Nessuna attività</td></tr>
-    </tbody>
-  </table>
-</section>
+        <label>Data</label>
+        <input type="date" id="e-date" required />
 
-<!-- NUOVA ATTIVITÀ -->
-<section id="tab-new" class="tab">
-  <h2>Nuova attività</h2>
+        <label>Modello</label>
+        <select id="e-model" required></select>
 
-  <form id="activity-form">
-    <input type="date" id="a-date" required>
+        <label>Matricola</label>
+        <select id="e-train" required></select>
 
-    <select id="a-model" required></select>
-    <select id="a-train" required></select>
-    <select id="a-scadenza" required></select>
-    <select id="a-abilitazione" required></select>
+        <label>Scadenza</label>
+        <select id="e-scadenza" required></select>
 
-    <input type="number" step="0.1" id="a-hours" placeholder="Ore (decimi)" required>
-    <textarea id="a-notes" placeholder="Note"></textarea>
+        <label>Abilitazione</label>
+        <select id="e-abilitazione" required></select>
 
-    <button type="submit">Salva</button>
-  </form>
-</section>
+        <label>Tempo (decimi)</label>
+        <input type="text" id="e-timeDeci" required />
 
-<!-- REGISTRO -->
-<section id="tab-registry" class="tab">
-  <h2>Registro treni</h2>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Data</th>
-        <th>Modello</th>
-        <th>Matricola</th>
-        <th>Ore</th>
-        <th>Note</th>
-        <th>Azioni</th>
-      </tr>
-    </thead>
-    <tbody id="registry-body"></tbody>
-  </table>
-</section>
+        <label>Note</label>
+        <textarea id="e-notes" rows="2"></textarea>
 
-<!-- IMPOSTAZIONI -->
-<section id="tab-settings" class="tab">
-  <h2>Impostazioni (per modello)</h2>
+        <div class="row">
+          <button type="submit">Salva</button>
+          <button id="e-delete" type="button" class="danger">Elimina</button>
+          <button id="e-cancel" type="button" class="secondary">Annulla</button>
+        </div>
 
-  <h3>Modelli</h3>
-  <input id="s-model">
-  <button id="add-model">Aggiungi</button>
-  <ul id="models-list"></ul>
-
-  <h3>Matricole</h3>
-  <select id="s-train-model"></select>
-  <input id="s-train">
-  <button id="add-train">Aggiungi</button>
-  <ul id="trains-list"></ul>
-
-  <h3>Scadenze</h3>
-  <select id="s-scad-model"></select>
-  <input id="s-scadenza">
-  <button id="add-scadenza">Aggiungi</button>
-  <ul id="scadenze-list"></ul>
-
-  <h3>Abilitazioni</h3>
-  <select id="s-abil-model"></select>
-  <input id="s-abilitazione">
-  <button id="add-abilitazione">Aggiungi</button>
-  <ul id="abilitazioni-list"></ul>
-</section>
-
-</main>
-
-<!-- MODALE -->
-<div id="modal" class="modal hidden">
-  <div class="modal-box">
-    <h3>Modifica attività</h3>
-    <input type="hidden" id="edit-index">
-    <input type="number" step="0.1" id="edit-hours">
-    <textarea id="edit-notes"></textarea>
-    <button id="save-edit">Salva</button>
-    <button id="delete-edit" class="danger">Elimina</button>
-    <button id="close-modal">Chiudi</button>
+        <p id="edit-msg" class="status"></p>
+      </form>
+    </div>
   </div>
-</div>
 
-<script src="app.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  </script>
 </body>
 </html>
