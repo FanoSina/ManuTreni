@@ -2,18 +2,16 @@ const firebaseConfig = {
   apiKey: "AIzaSyCqLfhYJLru8RVmVhOCmYWo1MDzNaOQGpQ",
   authDomain: "manutrain-aced7.firebaseapp.com",
   projectId: "manutrain-aced7",
-  storageBucket: "manutrain-aced7.firebasestorage.app",
+  storageBucket: "manutrain-aced7.appspot.com",
   messagingSenderId: "1031834557198",
   appId: "1:1031834557198:web:8b40c5379d2b682423955f"
-};
-
-
 };
 
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
 const db = firebase.firestore();
+
 
 const $ = id => document.getElementById(id);
 
