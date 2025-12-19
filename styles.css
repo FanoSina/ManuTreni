@@ -46,48 +46,61 @@ main {
     border-collapse: collapse;
 }
 
-.table th,
-.table td {
-    border-bottom: 1px solid #1f2937;
+.table th, .table td {
     padding: 0.5rem;
+    border-bottom: 1px solid #1f2937;
 }
 
-form input,
-    form select,
-        form textarea,
-            form button {
-                display: block;
-                width: 100%;
-                margin: 0.5rem 0;
-                padding: 0.5rem;
-            }
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin: 10px 0;
+}
 
-            button {
-                background: #22c55e;
-                border: none;
-                padding: 0.5rem;
-                cursor: pointer;
-            }
+.calendar-grid div {
+    background: #020617;
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+}
 
-            button.danger {
-                background: #ef4444;
-            }
+.calendar-grid .active-day {
+    outline: 2px solid #22c55e;
+}
 
-            .modal {
-                position: fixed;
-                inset: 0;
-                background: rgba(0,0,0,0.6);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
+form input, form select, form textarea, form button {
+    width: 100%;
+    margin: 0.4rem 0;
+    padding: 0.4rem;
+}
 
-            .modal.hidden {
-                display: none;
-            }
+button {
+    background: #22c55e;
+    border: none;
+    padding: 0.4rem;
+    cursor: pointer;
+}
 
-            .modal-box {
-                background: #020617;
-                padding: 1rem;
-                width: 300px;
-            }
+button.danger {
+    background: #ef4444;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-box {
+    background: #020617;
+    padding: 1rem;
+    width: 300px;
+}

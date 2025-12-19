@@ -21,54 +21,58 @@
 
 <main>
 
+<!-- CALENDARIO -->
 <section id="tab-calendar" class="tab active">
-  <h2>Calendario</h2>
-  <p>Seleziona un giorno</p>
+  <div class="cal-header">
+    <button id="prev-month">‹</button>
+    <strong id="month-label"></strong>
+    <button id="next-month">›</button>
+  </div>
+
+  <div id="calendar-grid" class="calendar-grid"></div>
+
+  <h3 id="day-title">Seleziona un giorno</h3>
+  <p>Totale ore: <strong id="day-total">0.0</strong></p>
 
   <table class="table">
     <thead>
       <tr>
-        <th>Data</th>
         <th>Modello</th>
         <th>Matricola</th>
         <th>Scadenza</th>
         <th>Abilitazione</th>
         <th>Ore</th>
-        <th>Note</th>
         <th>Azioni</th>
       </tr>
     </thead>
-    <tbody id="calendar-body"></tbody>
+    <tbody id="day-body">
+      <tr><td colspan="6">Nessuna attività</td></tr>
+    </tbody>
   </table>
 </section>
 
+<!-- NUOVA ATTIVITÀ -->
 <section id="tab-new" class="tab">
   <h2>Nuova attività</h2>
 
   <form id="activity-form">
-    <input type="date" id="date" required>
+    <input type="date" id="a-date" required>
 
-    <select id="model" required>
-      <option value="">Modello</option>
-      <option>E464</option>
-      <option>TAF</option>
-      <option>POP</option>
-      <option>JAZZ</option>
-      <option>ROCK</option>
-    </select>
+    <select id="a-model" required></select>
+    <select id="a-train" required></select>
+    <select id="a-scadenza" required></select>
+    <select id="a-abilitazione" required></select>
 
-    <input id="train" placeholder="Matricola" required>
-    <input id="deadline" placeholder="Scadenza" required>
-    <input id="cert" placeholder="Abilitazione" required>
-    <input id="hours" placeholder="Ore (decimi)" required>
-    <textarea id="notes" placeholder="Note"></textarea>
+    <input type="number" step="0.1" id="a-hours" placeholder="Ore (decimi)" required>
+    <textarea id="a-notes" placeholder="Note"></textarea>
 
     <button type="submit">Salva</button>
   </form>
 </section>
 
+<!-- REGISTRO -->
 <section id="tab-registry" class="tab">
-  <h2>Registro attività</h2>
+  <h2>Registro treni</h2>
   <table class="table">
     <thead>
       <tr>
@@ -84,21 +88,46 @@
   </table>
 </section>
 
+<!-- IMPOSTAZIONI -->
 <section id="tab-settings" class="tab">
-  <h2>Impostazioni</h2>
-  <p>(per ora statiche – verranno agganciate dopo)</p>
+  <h2>Impostazioni (per modello)</h2>
+
+  <h3>Modelli</h3>
+  <input id="s-model">
+  <button id="add-model">Aggiungi</button>
+  <ul id="models-list"></ul>
+
+  <h3>Matricole</h3>
+  <select id="s-train-model"></select>
+  <input id="s-train">
+  <button id="add-train">Aggiungi</button>
+  <ul id="trains-list"></ul>
+
+  <h3>Scadenze</h3>
+  <select id="s-scad-model"></select>
+  <input id="s-scadenza">
+  <button id="add-scadenza">Aggiungi</button>
+  <ul id="scadenze-list"></ul>
+
+  <h3>Abilitazioni</h3>
+  <select id="s-abil-model"></select>
+  <input id="s-abilitazione">
+  <button id="add-abilitazione">Aggiungi</button>
+  <ul id="abilitazioni-list"></ul>
 </section>
 
 </main>
 
+<!-- MODALE -->
 <div id="modal" class="modal hidden">
   <div class="modal-box">
     <h3>Modifica attività</h3>
-    <input type="hidden" id="edit-id">
-    <input id="edit-hours">
+    <input type="hidden" id="edit-index">
+    <input type="number" step="0.1" id="edit-hours">
     <textarea id="edit-notes"></textarea>
     <button id="save-edit">Salva</button>
     <button id="delete-edit" class="danger">Elimina</button>
+    <button id="close-modal">Chiudi</button>
   </div>
 </div>
 
