@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>ManuTreni</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Firebase compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- LOGIN -->
+<section id="auth-screen" class="auth-screen">
+  <div class="card auth-card">
+    <h2>Accesso ManuTreni</h2>
+
+    <input id="auth-email" type="email" placeholder="Email">
+    <input id="auth-password" type="password" placeholder="Password">
+
+    <button id="btn-login">Accedi</button>
+    <button id="btn-register" class="secondary">Registrati</button>
+
+    <p id="auth-msg" class="status"></p>
+  </div>
+</section>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <h1>ManuTreni</h1>
+    <button id="btn-logout" class="danger">Logout</button>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="calendar" class="active">Calendario</button>
+    <button data-tab="new">Nuova attività</button>
+    <button data-tab="list">Registro</button>
+    <button data-tab="settings">Impostazioni</button>
+  </nav>
+
+  <main>
+
+    <!-- CALENDARIO -->
+    <section id="tab-calendar" class="tab active">
+      <div class="cal-head">
+        <button id="cal-prev">‹</button>
+        <strong id="cal-label"></strong>
+        <button id="cal-next">›</button>
+      </div>
+
+      <div id="calendar-grid" class="calendar-grid"></div>
+
+      <h3 id="day-title">Seleziona un giorno</h3>
+      <p>Totale ore: <strong id="day-total">0.0</strong></p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Modello</th>
+            <th>Matricola</th>
+            <th>Scadenza</th>
+            <th>Abilitazione</th>
+            <th>Ore</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody id="day-rows">
+          <tr><td colspan="6">Nessuna attività</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- NUOVA -->
+    <section id="tab-new" class="tab">
+      <h2>Nuova attività</h2>
+
+      <form id="form-new">
+        <input type="date" id="n-date">
+        <select id="n-model"></select>
+        <select id="n-train"></select>
+        <select id="n-scadenza"></select>
+        <select id="n-abilitazione"></select>
+        <input type="text" id="n-time" placeholder="Decimi (es. 1.5)">
+        <textarea id="n-notes" placeholder="Note"></textarea>
+        <button type="submit">Salva</button>
+        <p id="new-msg" class="status"></p>
+      </form>
+    </section>
+
+    <!-- REGISTRO -->
+    <section id="tab-list" class="tab">
+      <h2>Registro treni</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Modello</th>
+            <th>Matricola</th>
+            <th>Ore</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody id="list-rows"></tbody>
+      </table>
+    </section>
+
+    <!-- IMPOSTAZIONI -->
+    <section id="tab-settings" class="tab">
+      <h2>Impostazioni (per modello)</h2>
+
+      <h3>Modelli</h3>
+      <input id="s-model" placeholder="E464">
+      <button id="add-model">Aggiungi</button>
+      <ul id="models-list"></ul>
+
+      <h3>Matricole</h3>
+      <select id="s-train-model"></select>
+      <input id="s-train" placeholder="464-001">
+      <button id="add-train">Aggiungi</button>
+      <ul id="trains-list"></ul>
+
+      <h3>Scadenze</h3>
+      <select id="s-scad-model"></select>
+      <input id="s-scadenza" placeholder="SCMT mensile">
+      <button id="add-scadenza">Aggiungi</button>
+      <ul id="scadenze-list"></ul>
+
+      <h3>Abilitazioni</h3>
+      <select id="s-abil-model"></select>
+      <input id="s-abil" placeholder="VT3">
+      <button id="add-abil">Aggiungi</button>
+      <ul id="abil-list"></ul>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+</body>
+</html>
