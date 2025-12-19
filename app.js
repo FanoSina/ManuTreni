@@ -1,7 +1,13 @@
 const firebaseConfig = {
   apiKey: "AIzaSyCqLfhYJLru8RVmVhOCmYWo1MDzNaOQGpQ",
   authDomain: "manutrain-aced7.firebaseapp.com",
-  projectId: "manutrain-aced7"
+  projectId: "manutrain-aced7",
+  storageBucket: "manutrain-aced7.firebasestorage.app",
+  messagingSenderId: "1031834557198",
+  appId: "1:1031834557198:web:8b40c5379d2b682423955f"
+};
+
+
 };
 
 firebase.initializeApp(firebaseConfig);
