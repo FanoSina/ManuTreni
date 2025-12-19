@@ -1,51 +1,107 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <title>ManuTreni</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0b1220">
   <link rel="stylesheet" href="styles.css">
-
-  <!-- Firebase compat -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-<!-- LOGIN -->
-<section id="auth-screen">
-  <div class="card">
-    <h2>Accesso ManuTreni</h2>
-    <input id="auth-email" type="email" placeholder="Email">
-    <input id="auth-password" type="password" placeholder="Password">
-    <button id="btn-login">Accedi</button>
-    <button id="btn-register" class="secondary">Registrati</button>
-    <p id="auth-msg"></p>
-  </div>
+<header class="topbar">
+  <h1>ManuTreni</h1>
+</header>
+
+<nav class="tabs">
+  <button data-tab="calendar" class="active">Calendario</button>
+  <button data-tab="new">Nuova attività</button>
+  <button data-tab="registry">Registro</button>
+  <button data-tab="settings">Impostazioni</button>
+</nav>
+
+<main>
+
+<section id="tab-calendar" class="tab active">
+  <h2>Calendario</h2>
+  <p>Seleziona un giorno</p>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Modello</th>
+        <th>Matricola</th>
+        <th>Scadenza</th>
+        <th>Abilitazione</th>
+        <th>Ore</th>
+        <th>Note</th>
+        <th>Azioni</th>
+      </tr>
+    </thead>
+    <tbody id="calendar-body"></tbody>
+  </table>
 </section>
 
-<!-- APP -->
-<div id="app">
-  <header class="topbar">
-    <h1>ManuTreni</h1>
-    <button id="btn-logout" class="danger">Logout</button>
-  </header>
+<section id="tab-new" class="tab">
+  <h2>Nuova attività</h2>
 
-  <main class="center">
-    <h2>Login riuscito</h2>
-    <p>Base stabile raggiunta ✔</p>
-  </main>
+  <form id="activity-form">
+    <input type="date" id="date" required>
+
+    <select id="model" required>
+      <option value="">Modello</option>
+      <option>E464</option>
+      <option>TAF</option>
+      <option>POP</option>
+      <option>JAZZ</option>
+      <option>ROCK</option>
+    </select>
+
+    <input id="train" placeholder="Matricola" required>
+    <input id="deadline" placeholder="Scadenza" required>
+    <input id="cert" placeholder="Abilitazione" required>
+    <input id="hours" placeholder="Ore (decimi)" required>
+    <textarea id="notes" placeholder="Note"></textarea>
+
+    <button type="submit">Salva</button>
+  </form>
+</section>
+
+<section id="tab-registry" class="tab">
+  <h2>Registro attività</h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Modello</th>
+        <th>Matricola</th>
+        <th>Ore</th>
+        <th>Note</th>
+        <th>Azioni</th>
+      </tr>
+    </thead>
+    <tbody id="registry-body"></tbody>
+  </table>
+</section>
+
+<section id="tab-settings" class="tab">
+  <h2>Impostazioni</h2>
+  <p>(per ora statiche – verranno agganciate dopo)</p>
+</section>
+
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <h3>Modifica attività</h3>
+    <input type="hidden" id="edit-id">
+    <input id="edit-hours">
+    <textarea id="edit-notes"></textarea>
+    <button id="save-edit">Salva</button>
+    <button id="delete-edit" class="danger">Elimina</button>
+  </div>
 </div>
 
 <script src="app.js"></script>
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
-}
-</script>
 </body>
 </html>

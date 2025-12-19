@@ -1,57 +1,81 @@
-const firebaseConfig = {
-  apiKey: "AIzaSyCqLfhYJLru8RVmVhOCmYWo1MDzNaOQGpQ",
-  authDomain: "manutrain-aced7.firebaseapp.com",
-  projectId: "manutrain-aced7",
-  storageBucket: "manutrain-aced7.appspot.com",
-  messagingSenderId: "1031834557198",
-  appId: "1:1031834557198:web:8b40c5379d2b682423955f"
+let activities = JSON.parse(localStorage.getItem("activities") || "[]");
+
+function save() {
+  localStorage.setItem("activities", JSON.stringify(activities));
+}
+
+function render() {
+  const cal = document.getElementById("calendar-body");
+  const reg = document.getElementById("registry-body");
+  cal.innerHTML = "";
+  reg.innerHTML = "";
+
+  activities.forEach((a, i) => {
+    const row = `
+    <tr>
+    <td>${a.date}</td>
+    <td>${a.model}</td>
+    <td>${a.train}</td>
+    <td>${a.deadline}</td>
+    <td>${a.cert}</td>
+    <td>${a.hours}</td>
+    <td>${a.notes}</td>
+    <td><button onclick="edit(${i})">✏️</button></td>
+    </tr>
+    `;
+    cal.innerHTML += row;
+    reg.innerHTML += row;
+  });
+}
+
+document.getElementById("activity-form").onsubmit = e => {
+  e.preventDefault();
+
+  activities.push({
+    date: date.value,
+    model: model.value,
+    train: train.value,
+    deadline: deadline.value,
+    cert: cert.value,
+    hours: hours.value,
+    notes: notes.value
+  });
+
+  save();
+  render();
+  e.target.reset();
 };
 
-firebase.initializeApp(firebaseConfig);
+function edit(i) {
+  modal.classList.remove("hidden");
+  editId.value = i;
+  editHours.value = activities[i].hours;
+  editNotes.value = activities[i].notes;
+}
 
-const auth = firebase.auth();
+saveEdit.onclick = () => {
+  const i = editId.value;
+  activities[i].hours = editHours.value;
+  activities[i].notes = editNotes.value;
+  save();
+  render();
+  modal.classList.add("hidden");
+};
 
-const authScreen = document.getElementById("auth-screen");
-const app = document.getElementById("app");
-const msg = document.getElementById("auth-msg");
+deleteEdit.onclick = () => {
+  activities.splice(editId.value, 1);
+  save();
+  render();
+  modal.classList.add("hidden");
+};
 
-authScreen.style.display = "grid";
-app.style.display = "none";
-
-/* AUTH STATE */
-auth.onAuthStateChanged(user => {
-  if (user) {
-    authScreen.style.display = "none";
-    app.style.display = "block";
-    msg.textContent = "";
-  } else {
-    app.style.display = "none";
-    authScreen.style.display = "grid";
-  }
+document.querySelectorAll(".tabs button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+  };
 });
 
-/* LOGIN */
-document.getElementById("btn-login").onclick = () => {
-  auth.signInWithEmailAndPassword(
-    document.getElementById("auth-email").value,
-                                  document.getElementById("auth-password").value
-  ).catch(e => msg.textContent = e.message);
-};
-
-/* REGISTER */
-document.getElementById("btn-register").onclick = () => {
-  if (auth.currentUser) {
-    msg.textContent = "Sei già autenticato.";
-    return;
-  }
-
-  auth.createUserWithEmailAndPassword(
-    document.getElementById("auth-email").value,
-                                      document.getElementById("auth-password").value
-  ).catch(e => msg.textContent = e.message);
-};
-
-/* LOGOUT */
-document.getElementById("btn-logout").onclick = () => {
-  auth.signOut();
-};
+render();

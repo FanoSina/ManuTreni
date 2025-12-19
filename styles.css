@@ -1,60 +1,93 @@
-* {
-box-sizing: border-box;
-font-family: system-ui;
-}
-
 body {
     margin: 0;
-    background: #0b1220;
+    font-family: system-ui, sans-serif;
+    background: #0f172a;
     color: #e5e7eb;
 }
 
-#auth-screen {
-min-height: 100vh;
-display: grid;
-place-items: center;
-}
-
-#app {
-display: none;
-}
-
-.card {
-    background: #020617;
-    padding: 24px;
-    border-radius: 12px;
-    width: 320px;
-}
-
-input, button {
-    width: 100%;
-    margin: 6px 0;
-    padding: 8px;
-    border-radius: 6px;
-    border: none;
-}
-
-button {
-    background: #22c55e;
-    font-weight: bold;
-}
-
-button.secondary {
-    background: #64748b;
-}
-
-button.danger {
-    background: #ef4444;
-}
-
 .topbar {
-    display: flex;
-    justify-content: space-between;
-    padding: 12px;
+    padding: 1rem;
     background: #020617;
 }
 
-.center {
-    padding: 40px;
-    text-align: center;
+.tabs {
+    display: flex;
+    background: #020617;
 }
+
+.tabs button {
+    flex: 1;
+    padding: 1rem;
+    border: none;
+    background: none;
+    color: #9ca3af;
+    cursor: pointer;
+}
+
+.tabs button.active {
+    color: #22c55e;
+    border-bottom: 2px solid #22c55e;
+}
+
+main {
+    padding: 1rem;
+}
+
+.tab {
+    display: none;
+}
+
+.tab.active {
+    display: block;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    border-bottom: 1px solid #1f2937;
+    padding: 0.5rem;
+}
+
+form input,
+    form select,
+        form textarea,
+            form button {
+                display: block;
+                width: 100%;
+                margin: 0.5rem 0;
+                padding: 0.5rem;
+            }
+
+            button {
+                background: #22c55e;
+                border: none;
+                padding: 0.5rem;
+                cursor: pointer;
+            }
+
+            button.danger {
+                background: #ef4444;
+            }
+
+            .modal {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .modal.hidden {
+                display: none;
+            }
+
+            .modal-box {
+                background: #020617;
+                padding: 1rem;
+                width: 300px;
+            }
