@@ -1,6 +1,6 @@
-/*************************************************
- * Firebase init
- *************************************************/
+/********************************************************
+ * FIREBASE INIT
+ ********************************************************/
 const firebaseConfig = {
   apiKey: "AIzaSyCqLfhYJLru8RVmVhOCmYWo1MDzNaOQGpQ",
   authDomain: "manutrain-aced7.firebaseapp.com",
@@ -14,36 +14,27 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-/*************************************************
- * Helpers
- *************************************************/
-const $ = (id) => document.getElementById(id);
-const norm = (v) => (v || "").toString().trim();
+/********************************************************
+ * HELPERS
+ ********************************************************/
+const $ = id => document.getElementById(id);
+const norm = v => (v || "").toString().trim();
 const alphaSort = (a, b) => a.localeCompare(b, "it", { sensitivity: "base" });
 
 function toDeci(v) {
   const n = parseFloat(norm(v).replace(",", "."));
-  return Number.isNaN(n) ? null : Math.round(n * 10) / 10;
+  return isNaN(n) ? null : Math.round(n * 10) / 10;
 }
 function ymd(d) {
   return d.toISOString().split("T")[0];
 }
-function monthLabel(date) {
-  return date.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
+function monthLabel(d) {
+  return d.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
 }
 
-/*************************************************
- * Firestore refs
- *************************************************/
-const settingsRef = (uid) =>
-db.collection("users").doc(uid).collection("settings").doc("main");
-
-const activitiesRef = (uid) =>
-db.collection("users").doc(uid).collection("activities");
-
-/*************************************************
- * State
- *************************************************/
+/********************************************************
+ * STATE
+ ********************************************************/
 let currentUser = null;
 let currentMonth = new Date();
 let selectedDay = null;
@@ -58,9 +49,18 @@ let settings = {
 let activities = [];
 let modelListenerAttached = false;
 
-/*************************************************
+/********************************************************
+ * FIRESTORE REFS
+ ********************************************************/
+const settingsDoc = uid =>
+db.collection("users").doc(uid).collection("settings").doc("main");
+
+const activitiesCol = uid =>
+db.collection("users").doc(uid).collection("activities");
+
+/********************************************************
  * AUTH UI
- *************************************************/
+ ********************************************************/
 function showAuth(msg = "") {
   $("auth-screen").classList.remove("hidden");
   $("app").classList.add("hidden");
@@ -71,9 +71,9 @@ function showApp() {
   $("app").classList.remove("hidden");
 }
 
-/*************************************************
+/********************************************************
  * AUTH ACTIONS
- *************************************************/
+ ********************************************************/
 $("btn-login").onclick = async () => {
   try {
     await auth.signInWithEmailAndPassword(
@@ -100,11 +100,11 @@ $("btn-logout").onclick = async () => {
   await auth.signOut();
 };
 
-/*************************************************
- * SETTINGS LOAD (ANTI-MENU-VUOTO)
- *************************************************/
+/********************************************************
+ * LOAD & SAVE SETTINGS (ROBUSTO)
+ ********************************************************/
 async function loadSettings(uid) {
-  const ref = settingsRef(uid);
+  const ref = settingsDoc(uid);
   const snap = await ref.get();
 
   const DEFAULT_MODELS = ["E464", "TAF", "POP", "JAZZ", "ROCK"];
@@ -116,13 +116,12 @@ async function loadSettings(uid) {
       scadenze: [],
       abilitazioni: []
     };
-    DEFAULT_MODELS.forEach((m) => (settings.trains[m] = []));
+    DEFAULT_MODELS.forEach(m => settings.trains[m] = []);
     await ref.set(settings);
     return;
   }
 
   const data = snap.data() || {};
-
   settings.models = Array.isArray(data.models) && data.models.length
   ? data.models
   : [...DEFAULT_MODELS];
@@ -131,7 +130,7 @@ async function loadSettings(uid) {
   settings.scadenze = Array.isArray(data.scadenze) ? data.scadenze : [];
   settings.abilitazioni = Array.isArray(data.abilitazioni) ? data.abilitazioni : [];
 
-  settings.models.forEach((m) => {
+  settings.models.forEach(m => {
     if (!Array.isArray(settings.trains[m])) {
       settings.trains[m] = [];
     }
@@ -140,68 +139,73 @@ async function loadSettings(uid) {
   await ref.set(settings, { merge: true });
 }
 
-/*************************************************
- * ACTIVITIES
- *************************************************/
-async function loadActivities(uid) {
-  const snap = await activitiesRef(uid).get();
-  activities = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+async function saveSettings() {
+  if (!currentUser) return;
+  await settingsDoc(currentUser.uid).set(settings, { merge: true });
 }
 
-async function addActivity(uid, a) {
-  const ref = await activitiesRef(uid).add(a);
+/********************************************************
+ * ACTIVITIES
+ ********************************************************/
+async function loadActivities(uid) {
+  const snap = await activitiesCol(uid).get();
+  activities = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function addActivity(a) {
+  const ref = await activitiesCol(currentUser.uid).add(a);
   activities.push({ id: ref.id, ...a });
 }
 
-async function updateActivity(uid, id, patch) {
-  await activitiesRef(uid).doc(id).set(patch, { merge: true });
-  const i = activities.findIndex((x) => x.id === id);
+async function updateActivity(id, patch) {
+  await activitiesCol(currentUser.uid).doc(id).set(patch, { merge: true });
+  const i = activities.findIndex(x => x.id === id);
   if (i >= 0) activities[i] = { ...activities[i], ...patch };
 }
 
-async function deleteActivity(uid, id) {
-  await activitiesRef(uid).doc(id).delete();
-  activities = activities.filter((x) => x.id !== id);
+async function deleteActivity(id) {
+  await activitiesCol(currentUser.uid).doc(id).delete();
+  activities = activities.filter(x => x.id !== id);
 }
 
-/*************************************************
+/********************************************************
  * TABS
- *************************************************/
-document.querySelectorAll(".tabs button").forEach((btn) => {
+ ********************************************************/
+document.querySelectorAll(".tabs button").forEach(btn => {
   btn.onclick = () => {
-    document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     btn.classList.add("active");
     $(`tab-${btn.dataset.tab}`).classList.add("active");
 
     if (btn.dataset.tab === "calendar") renderCalendar();
     if (btn.dataset.tab === "registry") renderRegistry();
-    if (btn.dataset.tab === "new") refreshNewFormOptions();
+    if (btn.dataset.tab === "new") refreshNewForm();
     if (btn.dataset.tab === "settings") renderSettings();
   };
 });
 
-/*************************************************
+/********************************************************
  * NEW ACTIVITY FORM
- *************************************************/
-function renderModelSelect(select, list) {
-  select.innerHTML = "";
-  list.forEach((m) => select.appendChild(new Option(m, m)));
+ ********************************************************/
+function renderModelSelect(sel) {
+  sel.innerHTML = "";
+  settings.models.forEach(m => sel.appendChild(new Option(m, m)));
 }
 
-function renderOptions(select, list, emptyLabel) {
-  select.innerHTML = "";
+function renderOptions(sel, list, emptyLabel) {
+  sel.innerHTML = "";
   if (!list.length) {
     const o = new Option(emptyLabel, "");
     o.disabled = true;
     o.selected = true;
-    select.appendChild(o);
+    sel.appendChild(o);
     return;
   }
-  list.forEach((v) => select.appendChild(new Option(v, v)));
+  list.forEach(v => sel.appendChild(new Option(v, v)));
 }
 
-function refreshNewFormOptions() {
+function refreshNewForm() {
   if (!$("n-date").value) $("n-date").value = ymd(new Date());
 
   let model = $("n-model").value;
@@ -215,7 +219,7 @@ function refreshNewFormOptions() {
   renderOptions($("n-abilitazione"), settings.abilitazioni, "Nessuna abilitazione");
 }
 
-$("form-new").onsubmit = async (e) => {
+$("form-new").onsubmit = async e => {
   e.preventDefault();
 
   const a = {
@@ -230,108 +234,79 @@ $("form-new").onsubmit = async (e) => {
 
   if (a.timeDeci === null) return alert("Tempo non valido");
 
-  await addActivity(currentUser.uid, a);
+  await addActivity(a);
   $("form-new").reset();
-  refreshNewFormOptions();
+  refreshNewForm();
   renderCalendar();
   renderRegistry();
 };
 
-/*************************************************
+/********************************************************
  * CALENDAR
- *************************************************/
+ ********************************************************/
 function renderCalendar() {
+  $("cal-month-label").textContent = monthLabel(currentMonth);
   const grid = $("calendar-grid");
-  const label = $("cal-month-label");
-
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth(); // 0-11
-
-  label.textContent = monthLabel(currentMonth);
   grid.innerHTML = "";
 
-  // raggruppa attività per data
   const byDate = {};
   activities.forEach(a => {
     if (!byDate[a.date]) byDate[a.date] = [];
     byDate[a.date].push(a);
   });
 
-  // intestazione giorni
-  const weekdays = ["L", "M", "M", "G", "V", "S", "D"];
-  weekdays.forEach(w => {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const first = new Date(year, month, 1);
+  const start = (first.getDay() + 6) % 7;
+  const days = new Date(year, month + 1, 0).getDate();
+
+  ["L","M","M","G","V","S","D"].forEach(w => {
     const h = document.createElement("div");
     h.className = "cal-header-cell";
     h.textContent = w;
     grid.appendChild(h);
   });
 
-  const firstDay = new Date(year, month, 1);
-  const startWeekday = (firstDay.getDay() + 6) % 7; // lunedì = 0
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  // celle vuote iniziali
-  for (let i = 0; i < startWeekday; i++) {
-    const empty = document.createElement("div");
-    empty.className = "cal-cell";
-    empty.style.visibility = "hidden";
-    grid.appendChild(empty);
+  for (let i = 0; i < start; i++) {
+    const e = document.createElement("div");
+    e.className = "cal-cell";
+    e.style.visibility = "hidden";
+    grid.appendChild(e);
   }
 
-  // giorni del mese
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const list = byDate[dateStr] || [];
-    const total = list.reduce((s, a) => s + (a.timeDeci || 0), 0);
+  for (let d = 1; d <= days; d++) {
+    const date = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const list = byDate[date] || [];
+    const total = list.reduce((s,a)=>s+(a.timeDeci||0),0);
 
-    const cell = document.createElement("div");
-    cell.className = "cal-cell cal-day";
-    if (selectedDay === dateStr) cell.classList.add("active");
-
-    cell.innerHTML = `
-    <div class="cal-day-number">${d}</div>
-    <div class="cal-day-hours">${total > 0 ? total.toFixed(1) : ""}</div>
-    `;
-
-    cell.onclick = () => {
-      selectedDay = dateStr;
-      showDaySummary(dateStr, list);
+    const c = document.createElement("div");
+    c.className = "cal-cell cal-day";
+    if (selectedDay === date) c.classList.add("active");
+    c.innerHTML = `<div>${d}</div><div class="cal-day-hours">${total?total.toFixed(1):""}</div>`;
+    c.onclick = () => {
+      selectedDay = date;
+      showDaySummary(date, list);
       renderCalendar();
     };
-
-    grid.appendChild(cell);
+    grid.appendChild(c);
   }
 
-  // seleziona oggi se mese corrente
-  if (!selectedDay) {
-    const today = ymd(new Date());
-    if (today.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)) {
-      selectedDay = today;
-      showDaySummary(today, byDate[today] || []);
-    } else {
-      showDaySummary(null, []);
-    }
-  }
+  if (!selectedDay) showDaySummary(null, []);
 }
 
-function showDaySummary(dateStr, list) {
-  const title = $("cal-day-title");
-  const hoursEl = $("cal-day-hours");
+function showDaySummary(date, list) {
+  $("cal-day-title").textContent = date ? `Attività del ${date}` : "Nessuna attività";
   const tbody = $("cal-day-activities");
-
-  if (!dateStr || !list.length) {
-    title.textContent = "Nessuna attività";
-    hoursEl.textContent = "0.0";
+  tbody.innerHTML = "";
+  if (!list || !list.length) {
     tbody.innerHTML = `<tr><td colspan="7">Nessuna attività</td></tr>`;
+    $("cal-day-hours").textContent = "0.0";
     return;
   }
-
-  title.textContent = `Attività del ${dateStr}`;
-  let total = 0;
-  tbody.innerHTML = "";
-
+  let tot = 0;
   list.forEach(a => {
-    total += a.timeDeci || 0;
+    tot += a.timeDeci || 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `
     <td>${a.model}</td>
@@ -339,36 +314,21 @@ function showDaySummary(dateStr, list) {
     <td>${a.scadenza}</td>
     <td>${a.abilitazione}</td>
     <td>${a.timeDeci.toFixed(1)}</td>
-    <td>${a.notes || ""}</td>
+    <td>${a.notes||""}</td>
     <td>
-    <button onclick="editActivity('${a.id}')">✏️</button>
     <button onclick="removeActivity('${a.id}')">🗑️</button>
-    </td>
-    `;
+    </td>`;
     tbody.appendChild(tr);
   });
-
-  hoursEl.textContent = total.toFixed(1);
+  $("cal-day-hours").textContent = tot.toFixed(1);
 }
 
-$("cal-prev").onclick = () => {
-  currentMonth.setMonth(currentMonth.getMonth() - 1);
-  selectedDay = null;
-  renderCalendar();
-};
-
-$("cal-next").onclick = () => {
-  currentMonth.setMonth(currentMonth.getMonth() + 1);
-  selectedDay = null;
-  renderCalendar();
-};
-
-/*************************************************
+/********************************************************
  * REGISTRY
- *************************************************/
+ ********************************************************/
 function renderRegistry() {
   $("registry-rows").innerHTML = "";
-  activities.forEach((a) => {
+  activities.forEach(a => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
     <td>${a.date}</td>
@@ -378,212 +338,119 @@ function renderRegistry() {
     <td>${a.abilitazione}</td>
     <td>${a.timeDeci}</td>
     <td>
-    <button onclick="editActivity('${a.id}')">✏️</button>
     <button onclick="removeActivity('${a.id}')">🗑️</button>
     </td>`;
     $("registry-rows").appendChild(tr);
   });
 }
 
-window.editActivity = (id) => {
-  const a = activities.find((x) => x.id === id);
-  if (!a) return;
-  $("n-date").value = a.date;
-  $("n-model").value = a.model;
-  refreshNewFormOptions();
-  $("n-train").value = a.trainId;
-  $("n-scadenza").value = a.scadenza;
-  $("n-abilitazione").value = a.abilitazione;
-  $("n-timeDeci").value = a.timeDeci;
-  $("n-notes").value = a.notes || "";
-};
-
-window.removeActivity = async (id) => {
+window.removeActivity = async id => {
   if (!confirm("Eliminare attività?")) return;
-  await deleteActivity(currentUser.uid, id);
-  renderRegistry();
+  await deleteActivity(id);
   renderCalendar();
+  renderRegistry();
 };
 
-/*************************************************
- * SETTINGS UI (base)
- *************************************************/
+/********************************************************
+ * SETTINGS UI (SCRIVE DAVVERO)
+ ********************************************************/
 function renderSettings() {
-  // MODELLI
-  const ulModels = $("s-models-list");
-  ulModels.innerHTML = "";
+  $("s-models-list").innerHTML = "";
   settings.models.forEach(m => {
     const li = document.createElement("li");
-    li.innerHTML = `
-    <span>${m}</span>
-    <button data-action="del-model" data-model="${m}">✕</button>
-    `;
-    ulModels.appendChild(li);
+    li.textContent = m;
+    $("s-models-list").appendChild(li);
   });
 
-  // SELECT modello per matricole
   const sel = $("s-train-model");
   sel.innerHTML = "";
-  settings.models.forEach(m => {
-    sel.appendChild(new Option(m, m));
-  });
-
+  settings.models.forEach(m => sel.appendChild(new Option(m,m)));
   renderSettingsLists();
 }
 
 function renderSettingsLists() {
-  const model = $("s-train-model").value || settings.models[0];
-
-  // MATRICOLЕ
-  const ulTrains = $("s-trains-list");
-  ulTrains.innerHTML = "";
-  (settings.trains[model] || []).forEach(t => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-    <span>${t}</span>
-    <button data-action="del-train" data-model="${model}" data-name="${t}">✕</button>
-    `;
-    ulTrains.appendChild(li);
+  const m = $("s-train-model").value;
+  $("s-trains-list").innerHTML = "";
+  (settings.trains[m]||[]).forEach(t=>{
+    const li=document.createElement("li");
+    li.textContent=t;
+    $("s-trains-list").appendChild(li);
   });
 
-  // SCADENZE
-  const ulScad = $("s-scads-list");
-  ulScad.innerHTML = "";
-  settings.scadenze.forEach(s => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-    <span>${s}</span>
-    <button data-action="del-scad" data-name="${s}">✕</button>
-    `;
-    ulScad.appendChild(li);
+  $("s-scads-list").innerHTML="";
+  settings.scadenze.forEach(s=>{
+    const li=document.createElement("li");
+    li.textContent=s;
+    $("s-scads-list").appendChild(li);
   });
 
-  // ABILITAZIONI
-  const ulAbil = $("s-abils-list");
-  ulAbil.innerHTML = "";
-  settings.abilitazioni.forEach(a => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-    <span>${a}</span>
-    <button data-action="del-abil" data-name="${a}">✕</button>
-    `;
-    ulAbil.appendChild(li);
+  $("s-abils-list").innerHTML="";
+  settings.abilitazioni.forEach(a=>{
+    const li=document.createElement("li");
+    li.textContent=a;
+    $("s-abils-list").appendChild(li);
   });
 }
 
-/* -------- AGGIUNTE -------- */
-
-// aggiungi matricola
-$("s-add-train").onclick = async () => {
-  const model = $("s-train-model").value;
-  const value = norm($("s-train-name").value);
-  if (!model || !value) return;
-
-  if (!settings.trains[model].includes(value)) {
-    settings.trains[model].push(value);
-    settings.trains[model].sort(alphaSort);
-  }
-
-  await saveSettings(currentUser.uid);
-  $("s-train-name").value = "";
-  renderSettings();
-  refreshNewFormOptions();
-};
-
-// aggiungi scadenza (globale)
-$("s-add-scad").onclick = async () => {
-  const value = norm($("s-scad-name").value);
-  if (!value) return;
-
-  if (!settings.scadenze.includes(value)) {
-    settings.scadenze.push(value);
-    settings.scadenze.sort(alphaSort);
-  }
-
-  await saveSettings(currentUser.uid);
-  $("s-scad-name").value = "";
-  renderSettings();
-  refreshNewFormOptions();
-};
-
-// aggiungi abilitazione (globale)
-$("s-add-abil").onclick = async () => {
-  const value = norm($("s-abil-name").value);
-  if (!value) return;
-
-  if (!settings.abilitazioni.includes(value)) {
-    settings.abilitazioni.push(value);
-    settings.abilitazioni.sort(alphaSort);
-  }
-
-  await saveSettings(currentUser.uid);
-  $("s-abil-name").value = "";
-  renderSettings();
-  refreshNewFormOptions();
-};
-
-/* -------- ELIMINAZIONI -------- */
-
-$("tab-settings").onclick = async (e) => {
-  const btn = e.target.closest("button[data-action]");
-  if (!btn) return;
-
-  const action = btn.dataset.action;
-
-  if (action === "del-train") {
-    const { model, name } = btn.dataset;
-    settings.trains[model] = settings.trains[model].filter(x => x !== name);
-  }
-
-  if (action === "del-scad") {
-    settings.scadenze = settings.scadenze.filter(x => x !== btn.dataset.name);
-  }
-
-  if (action === "del-abil") {
-    settings.abilitazioni = settings.abilitazioni.filter(x => x !== btn.dataset.name);
-  }
-
-  if (action === "del-model") {
-    const m = btn.dataset.model;
-    settings.models = settings.models.filter(x => x !== m);
-    delete settings.trains[m];
-  }
-
-  await saveSettings(currentUser.uid);
-  renderSettings();
-  refreshNewFormOptions();
-};
-
-// cambio modello matricole
 $("s-train-model").onchange = renderSettingsLists;
 
-/*************************************************
+$("s-add-train").onclick = async ()=>{
+  const m=$("s-train-model").value;
+  const v=norm($("s-train-name").value);
+  if(!m||!v)return;
+  if(!settings.trains[m].includes(v))settings.trains[m].push(v);
+  await saveSettings();
+  $("s-train-name").value="";
+  renderSettingsLists();
+  refreshNewForm();
+};
+
+$("s-add-scad").onclick = async ()=>{
+  const v=norm($("s-scad-name").value);
+  if(!v)return;
+  if(!settings.scadenze.includes(v))settings.scadenze.push(v);
+  await saveSettings();
+  $("s-scad-name").value="";
+  renderSettingsLists();
+  refreshNewForm();
+};
+
+$("s-add-abil").onclick = async ()=>{
+  const v=norm($("s-abil-name").value);
+  if(!v)return;
+  if(!settings.abilitazioni.includes(v))settings.abilitazioni.push(v);
+  await saveSettings();
+  $("s-abil-name").value="";
+  renderSettingsLists();
+  refreshNewForm();
+};
+
+/********************************************************
  * AUTH STATE
- *************************************************/
-auth.onAuthStateChanged(async (user) => {
-  if (!user) {
-    currentUser = null;
+ ********************************************************/
+auth.onAuthStateChanged(async user=>{
+  if(!user){
+    currentUser=null;
     showAuth();
     return;
   }
 
-  currentUser = user;
+  currentUser=user;
   showApp();
-  $("user-email").textContent = user.email;
+  $("user-email").textContent=user.email;
 
   await loadSettings(user.uid);
   await loadActivities(user.uid);
 
-  // init model select ONCE
-  renderModelSelect($("n-model"), settings.models);
-  $("n-model").value = settings.models[0];
+  renderModelSelect($("n-model"));
+  $("n-model").value=settings.models[0];
 
-  if (!modelListenerAttached) {
-    $("n-model").addEventListener("change", refreshNewFormOptions);
-    modelListenerAttached = true;
+  if(!modelListenerAttached){
+    $("n-model").onchange=refreshNewForm;
+    modelListenerAttached=true;
   }
 
-  refreshNewFormOptions();
+  refreshNewForm();
   renderRegistry();
   renderCalendar();
 });
