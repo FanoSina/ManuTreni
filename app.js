@@ -395,15 +395,28 @@ function renderOptions(selectEl, arr, emptyLabel) {
 }
 
 function refreshNewFormOptions() {
-  renderModelSelect($("n-model"), settings.models);
   if (!$("n-date").value) $("n-date").value = ymd(new Date());
 
-  const model = $("n-model").value || settings.models[0];
+  const model = $("n-model").value;
   ensureModelArrays(model);
 
-  renderOptions($("n-train"), settings.trains[model], "Nessuna matricola (aggiungi in Impostazioni)");
-  renderOptions($("n-scadenza"), settings.scadenze, "Nessuna scadenza (aggiungi in Impostazioni)");
-  renderOptions($("n-abilitazione"), settings.abilitazioni, "Nessuna abilitazione (aggiungi in Impostazioni)");
+  renderOptions(
+    $("n-train"),
+                settings.trains[model],
+                "Nessuna matricola (aggiungi in Impostazioni)"
+  );
+
+  renderOptions(
+    $("n-scadenza"),
+                settings.scadenze,
+                "Nessuna scadenza (aggiungi in Impostazioni)"
+  );
+
+  renderOptions(
+    $("n-abilitazione"),
+                settings.abilitazioni,
+                "Nessuna abilitazione (aggiungi in Impostazioni)"
+  );
 }
 
 $("n-model").addEventListener("change", refreshNewFormOptions);
@@ -596,6 +609,11 @@ $("s-add-model").addEventListener("click", async () => {
   await saveSettings(currentUser.uid);
   $("s-model-name").value = "";
   renderSettings();
+
+  // inizializza select modelli UNA VOLTA
+  renderModelSelect($("n-model"), settings.models);
+  $("n-model").value = settings.models[0] || "";
+
   refreshNewFormOptions();
   renderRegistry();
 });
