@@ -145,28 +145,45 @@ async function loadSettings(uid) {
   const ref = settingsDocRef(uid);
   const snap = await ref.get();
 
+  // DEFAULT SICURI
+  const DEFAULT_MODELS = ["E464", "TAF", "POP", "JAZZ", "ROCK"];
+
   if (!snap.exists) {
-    // init default
-    settings.models.forEach((m) => ensureModelArrays(m));
-    await ref.set(settings, { merge: true });
+    settings = {
+      models: [...DEFAULT_MODELS],
+      trains: {},
+      scadenze: [],
+      abilitazioni: []
+    };
+
+    DEFAULT_MODELS.forEach(m => {
+      settings.trains[m] = [];
+    });
+
+    await ref.set(settings);
     return;
   }
 
   const data = snap.data() || {};
+
   settings = {
-    models: Array.isArray(data.models) && data.models.length ? data.models : ["E464", "TAF", "POP", "JAZZ", "ROCK"],
+    models: Array.isArray(data.models) && data.models.length
+    ? data.models
+    : [...DEFAULT_MODELS],
+
     trains: data.trains || {},
     scadenze: Array.isArray(data.scadenze) ? data.scadenze : [],
     abilitazioni: Array.isArray(data.abilitazioni) ? data.abilitazioni : []
   };
 
-  settings.models = [...new Set(settings.models.map(norm).filter(Boolean))].sort(alphaSort);
-  settings.models.forEach(ensureModelArrays);
-  settings.scadenze = [...new Set(settings.scadenze.map(norm).filter(Boolean))].sort(alphaSort);
-  settings.abilitazioni = [...new Set(settings.abilitazioni.map(norm).filter(Boolean))].sort(alphaSort);
-  for (const m of settings.models) {
-    settings.trains[m] = [...new Set((settings.trains[m] || []).map(norm).filter(Boolean))].sort(alphaSort);
-  }
+  // 🔒 GARANZIA TOTALE
+  settings.models.forEach(m => {
+    if (!Array.isArray(settings.trains[m])) {
+      settings.trains[m] = [];
+    }
+  });
+
+  await ref.set(settings, { merge: true });
 }
 
 async function saveSettings(uid) {
