@@ -409,13 +409,153 @@ window.removeActivity = async (id) => {
  * SETTINGS UI (base)
  *************************************************/
 function renderSettings() {
-  $("s-models-list").innerHTML = "";
-  settings.models.forEach((m) => {
+  // MODELLI
+  const ulModels = $("s-models-list");
+  ulModels.innerHTML = "";
+  settings.models.forEach(m => {
     const li = document.createElement("li");
-    li.textContent = m;
-    $("s-models-list").appendChild(li);
+    li.innerHTML = `
+    <span>${m}</span>
+    <button data-action="del-model" data-model="${m}">✕</button>
+    `;
+    ulModels.appendChild(li);
+  });
+
+  // SELECT modello per matricole
+  const sel = $("s-train-model");
+  sel.innerHTML = "";
+  settings.models.forEach(m => {
+    sel.appendChild(new Option(m, m));
+  });
+
+  renderSettingsLists();
+}
+
+function renderSettingsLists() {
+  const model = $("s-train-model").value || settings.models[0];
+
+  // MATRICOLЕ
+  const ulTrains = $("s-trains-list");
+  ulTrains.innerHTML = "";
+  (settings.trains[model] || []).forEach(t => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+    <span>${t}</span>
+    <button data-action="del-train" data-model="${model}" data-name="${t}">✕</button>
+    `;
+    ulTrains.appendChild(li);
+  });
+
+  // SCADENZE
+  const ulScad = $("s-scads-list");
+  ulScad.innerHTML = "";
+  settings.scadenze.forEach(s => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+    <span>${s}</span>
+    <button data-action="del-scad" data-name="${s}">✕</button>
+    `;
+    ulScad.appendChild(li);
+  });
+
+  // ABILITAZIONI
+  const ulAbil = $("s-abils-list");
+  ulAbil.innerHTML = "";
+  settings.abilitazioni.forEach(a => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+    <span>${a}</span>
+    <button data-action="del-abil" data-name="${a}">✕</button>
+    `;
+    ulAbil.appendChild(li);
   });
 }
+
+/* -------- AGGIUNTE -------- */
+
+// aggiungi matricola
+$("s-add-train").onclick = async () => {
+  const model = $("s-train-model").value;
+  const value = norm($("s-train-name").value);
+  if (!model || !value) return;
+
+  if (!settings.trains[model].includes(value)) {
+    settings.trains[model].push(value);
+    settings.trains[model].sort(alphaSort);
+  }
+
+  await saveSettings(currentUser.uid);
+  $("s-train-name").value = "";
+  renderSettings();
+  refreshNewFormOptions();
+};
+
+// aggiungi scadenza (globale)
+$("s-add-scad").onclick = async () => {
+  const value = norm($("s-scad-name").value);
+  if (!value) return;
+
+  if (!settings.scadenze.includes(value)) {
+    settings.scadenze.push(value);
+    settings.scadenze.sort(alphaSort);
+  }
+
+  await saveSettings(currentUser.uid);
+  $("s-scad-name").value = "";
+  renderSettings();
+  refreshNewFormOptions();
+};
+
+// aggiungi abilitazione (globale)
+$("s-add-abil").onclick = async () => {
+  const value = norm($("s-abil-name").value);
+  if (!value) return;
+
+  if (!settings.abilitazioni.includes(value)) {
+    settings.abilitazioni.push(value);
+    settings.abilitazioni.sort(alphaSort);
+  }
+
+  await saveSettings(currentUser.uid);
+  $("s-abil-name").value = "";
+  renderSettings();
+  refreshNewFormOptions();
+};
+
+/* -------- ELIMINAZIONI -------- */
+
+$("tab-settings").onclick = async (e) => {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
+
+  const action = btn.dataset.action;
+
+  if (action === "del-train") {
+    const { model, name } = btn.dataset;
+    settings.trains[model] = settings.trains[model].filter(x => x !== name);
+  }
+
+  if (action === "del-scad") {
+    settings.scadenze = settings.scadenze.filter(x => x !== btn.dataset.name);
+  }
+
+  if (action === "del-abil") {
+    settings.abilitazioni = settings.abilitazioni.filter(x => x !== btn.dataset.name);
+  }
+
+  if (action === "del-model") {
+    const m = btn.dataset.model;
+    settings.models = settings.models.filter(x => x !== m);
+    delete settings.trains[m];
+  }
+
+  await saveSettings(currentUser.uid);
+  renderSettings();
+  refreshNewFormOptions();
+};
+
+// cambio modello matricole
+$("s-train-model").onchange = renderSettingsLists;
 
 /*************************************************
  * AUTH STATE
