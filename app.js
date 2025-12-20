@@ -241,9 +241,127 @@ $("form-new").onsubmit = async (e) => {
  * CALENDAR
  *************************************************/
 function renderCalendar() {
-  $("cal-month-label").textContent = monthLabel(currentMonth);
-  $("calendar-grid").innerHTML = "Calendario OK";
+  const grid = $("calendar-grid");
+  const label = $("cal-month-label");
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth(); // 0-11
+
+  label.textContent = monthLabel(currentMonth);
+  grid.innerHTML = "";
+
+  // raggruppa attività per data
+  const byDate = {};
+  activities.forEach(a => {
+    if (!byDate[a.date]) byDate[a.date] = [];
+    byDate[a.date].push(a);
+  });
+
+  // intestazione giorni
+  const weekdays = ["L", "M", "M", "G", "V", "S", "D"];
+  weekdays.forEach(w => {
+    const h = document.createElement("div");
+    h.className = "cal-header-cell";
+    h.textContent = w;
+    grid.appendChild(h);
+  });
+
+  const firstDay = new Date(year, month, 1);
+  const startWeekday = (firstDay.getDay() + 6) % 7; // lunedì = 0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // celle vuote iniziali
+  for (let i = 0; i < startWeekday; i++) {
+    const empty = document.createElement("div");
+    empty.className = "cal-cell";
+    empty.style.visibility = "hidden";
+    grid.appendChild(empty);
+  }
+
+  // giorni del mese
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const list = byDate[dateStr] || [];
+    const total = list.reduce((s, a) => s + (a.timeDeci || 0), 0);
+
+    const cell = document.createElement("div");
+    cell.className = "cal-cell cal-day";
+    if (selectedDay === dateStr) cell.classList.add("active");
+
+    cell.innerHTML = `
+    <div class="cal-day-number">${d}</div>
+    <div class="cal-day-hours">${total > 0 ? total.toFixed(1) : ""}</div>
+    `;
+
+    cell.onclick = () => {
+      selectedDay = dateStr;
+      showDaySummary(dateStr, list);
+      renderCalendar();
+    };
+
+    grid.appendChild(cell);
+  }
+
+  // seleziona oggi se mese corrente
+  if (!selectedDay) {
+    const today = ymd(new Date());
+    if (today.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)) {
+      selectedDay = today;
+      showDaySummary(today, byDate[today] || []);
+    } else {
+      showDaySummary(null, []);
+    }
+  }
 }
+
+function showDaySummary(dateStr, list) {
+  const title = $("cal-day-title");
+  const hoursEl = $("cal-day-hours");
+  const tbody = $("cal-day-activities");
+
+  if (!dateStr || !list.length) {
+    title.textContent = "Nessuna attività";
+    hoursEl.textContent = "0.0";
+    tbody.innerHTML = `<tr><td colspan="7">Nessuna attività</td></tr>`;
+    return;
+  }
+
+  title.textContent = `Attività del ${dateStr}`;
+  let total = 0;
+  tbody.innerHTML = "";
+
+  list.forEach(a => {
+    total += a.timeDeci || 0;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+    <td>${a.model}</td>
+    <td>${a.trainId}</td>
+    <td>${a.scadenza}</td>
+    <td>${a.abilitazione}</td>
+    <td>${a.timeDeci.toFixed(1)}</td>
+    <td>${a.notes || ""}</td>
+    <td>
+    <button onclick="editActivity('${a.id}')">✏️</button>
+    <button onclick="removeActivity('${a.id}')">🗑️</button>
+    </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  hoursEl.textContent = total.toFixed(1);
+}
+
+$("cal-prev").onclick = () => {
+  currentMonth.setMonth(currentMonth.getMonth() - 1);
+  selectedDay = null;
+  renderCalendar();
+};
+
+$("cal-next").onclick = () => {
+  currentMonth.setMonth(currentMonth.getMonth() + 1);
+  selectedDay = null;
+  renderCalendar();
+};
 
 /*************************************************
  * REGISTRY
