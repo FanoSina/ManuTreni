@@ -1,4 +1,4 @@
-const CACHE_NAME = "gestionale-treni-v1";
+const CACHE_NAME = "manutreni-v3";
 const ASSETS = [
     "./",
 "./index.html",
@@ -10,17 +10,13 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-    );
+    event.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS)));
     self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
     event.waitUntil(
-        caches.keys().then((keys) =>
-        Promise.all(keys.map((k) => (k !== CACHE_NAME ? caches.delete(k) : null)))
-        )
+        caches.keys().then((keys) => Promise.all(keys.map((k) => (k !== CACHE_NAME ? caches.delete(k) : null))))
     );
     self.clients.claim();
 });
@@ -28,14 +24,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
     event.respondWith(
         caches.match(event.request).then((cached) => {
-            return (
-                cached ||
-                fetch(event.request).then((resp) => {
-                    const copy = resp.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-                    return resp;
-                }).catch(() => cached)
-            );
+            return cached || fetch(event.request).then((resp) => {
+                const copy = resp.clone();
+                caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
+                return resp;
+            }).catch(() => cached);
         })
     );
 });
