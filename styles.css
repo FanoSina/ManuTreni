@@ -141,7 +141,29 @@ button.danger{
     padding:10px;
     border:1px solid var(--line);
     border-radius:12px;
-    margin-bottom:8px
+    margin-bottom:8px;
+    background:rgba(255,255,255,.02);
 }
+.li-left{display:flex;align-items:center;gap:10px;min-width:0}
+.li-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.drag-handle{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:30px;
+    height:30px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,.03);
+    color:var(--muted);
+    cursor:grab;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:none;
+}
+.drag-handle:active{cursor:grabbing}
+li.dragging{opacity:.55}
+li.over{outline:2px dashed rgba(96,165,250,.55);outline-offset:2px}
 
 .h3{margin:0 0 8px;font-size:14px}

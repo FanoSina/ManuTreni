@@ -16,7 +16,6 @@ const db = firebase.firestore();
  ***********************/
 const $ = (id) => document.getElementById(id);
 const norm = (v) => (v ?? "").toString().trim();
-const alphaSort = (a, b) => a.localeCompare(b, "it", { sensitivity: "base" });
 const nowIso = () => new Date().toISOString();
 const ymd = (d) => d.toISOString().split("T")[0];
 
@@ -94,22 +93,38 @@ async function loadSettings(uid) {
   const snap = await settingsDoc(uid).get();
   const data = snap.data() || {};
 
+  // IMPORTANTISSIMO: niente sort() -> l'ordine è quello salvato
   settings.models = Array.isArray(data.models) ? data.models.map(norm).filter(Boolean) : [];
   settings.trains = data.trains || {};
   settings.scadenze = Array.isArray(data.scadenze) ? data.scadenze.map(norm).filter(Boolean) : [];
   settings.abilitazioni = Array.isArray(data.abilitazioni) ? data.abilitazioni.map(norm).filter(Boolean) : [];
 
-  settings.models = [...new Set(settings.models)].sort(alphaSort);
-  settings.scadenze = [...new Set(settings.scadenze)].sort(alphaSort);
-  settings.abilitazioni = [...new Set(settings.abilitazioni)].sort(alphaSort);
+  // dedupe preservando ordine
+  settings.models = dedupePreserve(settings.models);
+  settings.scadenze = dedupePreserve(settings.scadenze);
+  settings.abilitazioni = dedupePreserve(settings.abilitazioni);
 
+  // assicura array trains per modello e dedupe preservando ordine
   settings.models.forEach((m) => {
     if (!Array.isArray(settings.trains[m])) settings.trains[m] = [];
-    settings.trains[m] = [...new Set(settings.trains[m].map(norm).filter(Boolean))].sort(alphaSort);
+    settings.trains[m] = dedupePreserve(settings.trains[m].map(norm).filter(Boolean));
   });
 
   // salva normalizzato
   await settingsDoc(uid).set(settings, { merge: true });
+}
+
+function dedupePreserve(arr) {
+  const seen = new Set();
+  const out = [];
+  for (const v of arr) {
+    const k = norm(v);
+    if (!k) continue;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+  }
+  return out;
 }
 
 async function saveSettings() {
@@ -162,6 +177,7 @@ function initTabs() {
  * Select helpers
  ***********************/
 function setSelectOptions(sel, list, emptyLabel = "Nessuna voce") {
+  const cur = sel.value;
   sel.innerHTML = "";
   if (!list || list.length === 0) {
     const o = document.createElement("option");
@@ -173,6 +189,7 @@ function setSelectOptions(sel, list, emptyLabel = "Nessuna voce") {
     return;
   }
   list.forEach((v) => sel.appendChild(new Option(v, v)));
+  if (list.includes(cur)) sel.value = cur;
 }
 
 function renderModelSelect(sel, withAll = false) {
@@ -305,7 +322,7 @@ function renderCalendar() {
     cell.addEventListener("click", () => {
       selectedDay = dateStr;
       renderDaySummary(dateStr);
-      renderCalendar(); // aggiorna highlight
+      renderCalendar(); // highlight
     });
 
     grid.appendChild(cell);
@@ -569,16 +586,151 @@ function initEditModal() {
 }
 
 /***********************
+ * Drag & Drop (solo maniglia ☰)
+ ***********************/
+const dragState = {
+  listId: null,
+  fromIndex: null,
+  draggingValue: null
+};
+
+function enableDragOnlyFromHandle(ul) {
+  // abilita draggable SOLO se l'utente inizia dalla maniglia
+  ul.addEventListener("pointerdown", (e) => {
+    const handle = e.target.closest(".drag-handle");
+    if (!handle) return;
+    const li = handle.closest("li[data-value]");
+    if (!li) return;
+    li.draggable = true;
+  }, { passive: true });
+
+  ul.addEventListener("dragstart", (e) => {
+    const li = e.target.closest("li[data-value]");
+    if (!li) return;
+
+    const handle = e.target.closest(".drag-handle");
+    // se non parte dalla maniglia, blocca
+    if (!handle) {
+      e.preventDefault();
+      return;
+    }
+
+    const ulId = ul.id;
+    dragState.listId = ulId;
+    dragState.draggingValue = li.dataset.value;
+
+    const siblings = [...ul.querySelectorAll("li[data-value]")];
+    dragState.fromIndex = siblings.findIndex((x) => x.dataset.value === dragState.draggingValue);
+
+    li.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", dragState.draggingValue); } catch {}
+  });
+
+  ul.addEventListener("dragend", (e) => {
+    const li = e.target.closest("li[data-value]");
+    if (li) {
+      li.classList.remove("dragging");
+      li.draggable = false; // torna bloccato
+    }
+    ul.querySelectorAll("li.over").forEach((x) => x.classList.remove("over"));
+    dragState.listId = null;
+    dragState.fromIndex = null;
+    dragState.draggingValue = null;
+  });
+
+  ul.addEventListener("dragover", (e) => {
+    if (dragState.listId !== ul.id) return;
+    e.preventDefault();
+    const li = e.target.closest("li[data-value]");
+    if (!li) return;
+    ul.querySelectorAll("li.over").forEach((x) => x.classList.remove("over"));
+    li.classList.add("over");
+    e.dataTransfer.dropEffect = "move";
+  });
+
+  ul.addEventListener("drop", async (e) => {
+    if (dragState.listId !== ul.id) return;
+    e.preventDefault();
+
+    const targetLi = e.target.closest("li[data-value]");
+    if (!targetLi) return;
+
+    const siblings = [...ul.querySelectorAll("li[data-value]")];
+    const toIndex = siblings.findIndex((x) => x.dataset.value === targetLi.dataset.value);
+
+    if (dragState.fromIndex === null || toIndex < 0) return;
+    if (dragState.fromIndex === toIndex) return;
+
+    await handleReorder(ul.id, dragState.fromIndex, toIndex);
+
+    ul.querySelectorAll("li.over").forEach((x) => x.classList.remove("over"));
+  });
+}
+
+function moveItem(arr, from, to) {
+  const copy = arr.slice();
+  const [item] = copy.splice(from, 1);
+  copy.splice(to, 0, item);
+  return copy;
+}
+
+async function handleReorder(listId, fromIndex, toIndex) {
+  // MODELS
+  if (listId === "s-models-list") {
+    settings.models = moveItem(settings.models, fromIndex, toIndex);
+    await saveSettings();
+    await loadSettings(currentUser.uid);
+    renderSettingsAll();
+    return;
+  }
+
+  // SCADENZE
+  if (listId === "s-scads-list") {
+    settings.scadenze = moveItem(settings.scadenze, fromIndex, toIndex);
+    await saveSettings();
+    await loadSettings(currentUser.uid);
+    renderSettingsAll();
+    return;
+  }
+
+  // ABILITAZIONI
+  if (listId === "s-abils-list") {
+    settings.abilitazioni = moveItem(settings.abilitazioni, fromIndex, toIndex);
+    await saveSettings();
+    await loadSettings(currentUser.uid);
+    renderSettingsAll();
+    return;
+  }
+
+  // TRAINS (per modello selezionato)
+  if (listId === "s-trains-list") {
+    const model = $("s-train-model").value || settings.models[0] || "";
+    if (!model) return;
+    const arr = settings.trains[model] || [];
+    settings.trains[model] = moveItem(arr, fromIndex, toIndex);
+    await saveSettings();
+    await loadSettings(currentUser.uid);
+    renderSettingsAll();
+    return;
+  }
+}
+
+/***********************
  * Settings
  ***********************/
 function renderSettingsAll() {
-  // models list
+  // MODELS
   const ulModels = $("s-models-list");
   ulModels.innerHTML = "";
   settings.models.forEach((m) => {
     const li = document.createElement("li");
+    li.dataset.value = m;
     li.innerHTML = `
-    <span>${m}</span>
+    <div class="li-left">
+    <span class="drag-handle" title="Trascina per ordinare">☰</span>
+    <span class="li-text">${m}</span>
+    </div>
     <button type="button" class="danger" data-action="del-model" data-model="${m}">✕</button>
     `;
     ulModels.appendChild(li);
@@ -586,9 +738,11 @@ function renderSettingsAll() {
 
   // train model select
   const sel = $("s-train-model");
+  const curModel = sel.value;
   sel.innerHTML = "";
   settings.models.forEach((m) => sel.appendChild(new Option(m, m)));
-  if (!sel.value) sel.value = settings.models[0] || "";
+  if (settings.models.includes(curModel)) sel.value = curModel;
+  else sel.value = settings.models[0] || "";
 
   renderSettingsTrainsList();
   renderSettingsScadenzeList();
@@ -601,6 +755,12 @@ function renderSettingsAll() {
   renderProceduresList();
   renderRegistry();
   renderCalendar();
+
+  // DnD enable (una volta per render: è ok)
+  enableDragOnlyFromHandle(ulModels);
+  enableDragOnlyFromHandle($("s-trains-list"));
+  enableDragOnlyFromHandle($("s-scads-list"));
+  enableDragOnlyFromHandle($("s-abils-list"));
 }
 
 function renderSettingsTrainsList() {
@@ -608,7 +768,7 @@ function renderSettingsTrainsList() {
   const ul = $("s-trains-list");
   ul.innerHTML = "";
 
-  const list = (settings.trains[model] || []).slice().sort(alphaSort);
+  const list = (settings.trains[model] || []);
   if (list.length === 0) {
     const li = document.createElement("li");
     li.innerHTML = `<span class="muted">Nessuna matricola</span>`;
@@ -618,8 +778,12 @@ function renderSettingsTrainsList() {
 
   list.forEach((t) => {
     const li = document.createElement("li");
+    li.dataset.value = t;
     li.innerHTML = `
-    <span>${t}</span>
+    <div class="li-left">
+    <span class="drag-handle" title="Trascina per ordinare">☰</span>
+    <span class="li-text">${t}</span>
+    </div>
     <button type="button" class="danger" data-action="del-train" data-model="${model}" data-train="${t}">✕</button>
     `;
     ul.appendChild(li);
@@ -630,7 +794,7 @@ function renderSettingsScadenzeList() {
   const ul = $("s-scads-list");
   ul.innerHTML = "";
 
-  const list = settings.scadenze.slice().sort(alphaSort);
+  const list = settings.scadenze;
   if (list.length === 0) {
     const li = document.createElement("li");
     li.innerHTML = `<span class="muted">Nessuna scadenza</span>`;
@@ -640,8 +804,12 @@ function renderSettingsScadenzeList() {
 
   list.forEach((s) => {
     const li = document.createElement("li");
+    li.dataset.value = s;
     li.innerHTML = `
-    <span>${s}</span>
+    <div class="li-left">
+    <span class="drag-handle" title="Trascina per ordinare">☰</span>
+    <span class="li-text">${s}</span>
+    </div>
     <button type="button" class="danger" data-action="del-scad" data-name="${s}">✕</button>
     `;
     ul.appendChild(li);
@@ -652,7 +820,7 @@ function renderSettingsAbilitazioniList() {
   const ul = $("s-abils-list");
   ul.innerHTML = "";
 
-  const list = settings.abilitazioni.slice().sort(alphaSort);
+  const list = settings.abilitazioni;
   if (list.length === 0) {
     const li = document.createElement("li");
     li.innerHTML = `<span class="muted">Nessuna abilitazione</span>`;
@@ -662,8 +830,12 @@ function renderSettingsAbilitazioniList() {
 
   list.forEach((a) => {
     const li = document.createElement("li");
+    li.dataset.value = a;
     li.innerHTML = `
-    <span>${a}</span>
+    <div class="li-left">
+    <span class="drag-handle" title="Trascina per ordinare">☰</span>
+    <span class="li-text">${a}</span>
+    </div>
     <button type="button" class="danger" data-action="del-abil" data-name="${a}">✕</button>
     `;
     ul.appendChild(li);
@@ -678,8 +850,7 @@ function initSettingsControls() {
     if (!m) return;
     if (settings.models.includes(m)) return;
 
-    settings.models.push(m);
-    settings.models.sort(alphaSort);
+    settings.models.push(m); // append -> ordine scelto dall'utente
     if (!settings.trains[m]) settings.trains[m] = [];
 
     await saveSettings();
@@ -694,8 +865,7 @@ function initSettingsControls() {
     if (!model || !t) return;
 
     if (!Array.isArray(settings.trains[model])) settings.trains[model] = [];
-    if (!settings.trains[model].includes(t)) settings.trains[model].push(t);
-    settings.trains[model].sort(alphaSort);
+    if (!settings.trains[model].includes(t)) settings.trains[model].push(t); // append
 
     await saveSettings();
     await loadSettings(currentUser.uid);
@@ -706,8 +876,7 @@ function initSettingsControls() {
   $("s-add-scad").addEventListener("click", async () => {
     const s = norm($("s-scad-name").value);
     if (!s) return;
-    if (!settings.scadenze.includes(s)) settings.scadenze.push(s);
-    settings.scadenze.sort(alphaSort);
+    if (!settings.scadenze.includes(s)) settings.scadenze.push(s); // append
 
     await saveSettings();
     await loadSettings(currentUser.uid);
@@ -718,8 +887,7 @@ function initSettingsControls() {
   $("s-add-abil").addEventListener("click", async () => {
     const a = norm($("s-abil-name").value);
     if (!a) return;
-    if (!settings.abilitazioni.includes(a)) settings.abilitazioni.push(a);
-    settings.abilitazioni.sort(alphaSort);
+    if (!settings.abilitazioni.includes(a)) settings.abilitazioni.push(a); // append
 
     await saveSettings();
     await loadSettings(currentUser.uid);
@@ -790,12 +958,14 @@ function refreshProcedureFormOptions() {
 
 function renderProceduresFilters() {
   renderModelSelect($("pf-model"), true);
-
+  setSelectOptions($("pf-scadenza"), ["", ...settings.scadenze], ""); // trick: gestiamo manuale sotto
+  // ricrea bene "Tutte"
   const cur = $("pf-scadenza").value;
   $("pf-scadenza").innerHTML = "";
   $("pf-scadenza").appendChild(new Option("Tutte", ""));
   settings.scadenze.forEach((s) => $("pf-scadenza").appendChild(new Option(s, s)));
-  $("pf-scadenza").value = settings.scadenze.includes(cur) ? cur : "";
+  if (settings.scadenze.includes(cur)) $("pf-scadenza").value = cur;
+  else $("pf-scadenza").value = "";
 }
 
 function getFilteredProcedures() {
@@ -999,23 +1169,21 @@ async function doRestore() {
     return;
   }
 
-  // 1) settings
   $("backup-status").textContent = "Ripristino impostazioni...";
   settings = data.settings;
 
-  // normalize
-  settings.models = [...new Set((settings.models || []).map(norm).filter(Boolean))].sort(alphaSort);
-  settings.scadenze = [...new Set((settings.scadenze || []).map(norm).filter(Boolean))].sort(alphaSort);
-  settings.abilitazioni = [...new Set((settings.abilitazioni || []).map(norm).filter(Boolean))].sort(alphaSort);
+  // normalize preservando ordine
+  settings.models = dedupePreserve((settings.models || []).map(norm).filter(Boolean));
+  settings.scadenze = dedupePreserve((settings.scadenze || []).map(norm).filter(Boolean));
+  settings.abilitazioni = dedupePreserve((settings.abilitazioni || []).map(norm).filter(Boolean));
   settings.trains = settings.trains || {};
   settings.models.forEach((m) => {
     if (!Array.isArray(settings.trains[m])) settings.trains[m] = [];
-    settings.trains[m] = [...new Set(settings.trains[m].map(norm).filter(Boolean))].sort(alphaSort);
+    settings.trains[m] = dedupePreserve(settings.trains[m].map(norm).filter(Boolean));
   });
 
   await saveSettings();
 
-  // 2) activities: aggiunge (non cancella il vecchio, per sicurezza)
   $("backup-status").textContent = "Ripristino attività...";
   const acts = Array.isArray(data.activities) ? data.activities : [];
   for (let i = 0; i < acts.length; i += 400) {
@@ -1024,7 +1192,6 @@ async function doRestore() {
     await batch.commit();
   }
 
-  // 3) procedures: aggiunge
   $("backup-status").textContent = "Ripristino procedure...";
   const procs = Array.isArray(data.procedures) ? data.procedures : [];
   for (let i = 0; i < procs.length; i += 400) {
@@ -1033,7 +1200,6 @@ async function doRestore() {
     await batch.commit();
   }
 
-  // reload
   await loadAll();
 
   $("backup-status").textContent = "Ripristino completato.";
