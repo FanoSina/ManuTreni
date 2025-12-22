@@ -13,6 +13,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 /********************************************************
  * HELPERS
@@ -31,6 +32,18 @@ function ymd(d) {
 function monthLabel(d) {
   return d.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
 }
+function nowIso() {
+  return new Date().toISOString();
+}
+function containsCI(text, q) {
+  return (text || "").toString().toLowerCase().includes((q || "").toLowerCase());
+}
+function safeFileName(name) {
+  return (name || "file")
+  .replace(/[^\w.\-() ]+/g, "_")
+  .replace(/\s+/g, "_")
+  .slice(0, 120);
+}
 
 /********************************************************
  * STATE
@@ -47,14 +60,16 @@ let settings = {
 };
 
 let activities = [];
+let procedures = [];
 
-let listenersAttached = {
-  modelNew: false,
-  registry: false,
+const listeners = {
+  tabs: false,
   calendar: false,
+  registry: false,
   settings: false,
   modal: false,
-  tabs: false
+  newform: false,
+  procedures: false
 };
 
 /********************************************************
@@ -65,6 +80,9 @@ db.collection("users").doc(uid).collection("settings").doc("main");
 
 const activitiesCol = (uid) =>
 db.collection("users").doc(uid).collection("activities");
+
+const proceduresCol = (uid) =>
+db.collection("users").doc(uid).collection("procedures");
 
 /********************************************************
  * AUTH UI
@@ -137,15 +155,14 @@ async function loadSettings(uid) {
   settings.scadenze = Array.isArray(data.scadenze) ? data.scadenze : [];
   settings.abilitazioni = Array.isArray(data.abilitazioni) ? data.abilitazioni : [];
 
-  // garantisci array per ogni modello
   settings.models.forEach((m) => {
     if (!Array.isArray(settings.trains[m])) settings.trains[m] = [];
   });
 
-    // normalizza/sort
     settings.models = [...new Set(settings.models.map(norm).filter(Boolean))].sort(alphaSort);
     settings.scadenze = [...new Set(settings.scadenze.map(norm).filter(Boolean))].sort(alphaSort);
     settings.abilitazioni = [...new Set(settings.abilitazioni.map(norm).filter(Boolean))].sort(alphaSort);
+
     for (const m of settings.models) {
       settings.trains[m] = [...new Set((settings.trains[m] || []).map(norm).filter(Boolean))].sort(alphaSort);
     }
@@ -183,11 +200,88 @@ async function deleteActivity(id) {
 }
 
 /********************************************************
+ * PROCEDURES CRUD + STORAGE
+ ********************************************************/
+async function loadProcedures(uid) {
+  const snap = await proceduresCol(uid).get();
+  procedures = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+async function addProcedure(p) {
+  const ref = await proceduresCol(currentUser.uid).add(p);
+  procedures.push({ id: ref.id, ...p });
+  return ref.id;
+}
+
+async function updateProcedure(id, patch) {
+  await proceduresCol(currentUser.uid).doc(id).set(patch, { merge: true });
+  const i = procedures.findIndex((x) => x.id === id);
+  if (i >= 0) procedures[i] = { ...procedures[i], ...patch };
+}
+
+async function deleteProcedure(id) {
+  // elimina anche gli allegati su Storage (best effort)
+  const p = procedures.find(x => x.id === id);
+  if (p && Array.isArray(p.attachments)) {
+    for (const att of p.attachments) {
+      if (att && att.storagePath) {
+        try { await storage.ref(att.storagePath).delete(); } catch (_) {}
+      }
+    }
+  }
+  await proceduresCol(currentUser.uid).doc(id).delete();
+  procedures = procedures.filter((x) => x.id !== id);
+}
+
+async function uploadFilesToProcedure(procId, files, onProgress) {
+  if (!currentUser) throw new Error("Not logged");
+
+  const uploaded = [];
+
+  for (const file of files) {
+    const fname = safeFileName(file.name);
+    const path = `users/${currentUser.uid}/procedures/${procId}/${Date.now()}_${fname}`;
+    const ref = storage.ref(path);
+    const task = ref.put(file, {
+      contentType: file.type || "application/octet-stream"
+    });
+
+    const result = await new Promise((resolve, reject) => {
+      task.on(
+        "state_changed",
+        (snap) => {
+          if (onProgress) {
+            const pct = snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0;
+            onProgress(pct, file.name);
+          }
+        },
+        (err) => reject(err),
+              async () => {
+                const url = await task.snapshot.ref.getDownloadURL();
+                resolve({ url, storagePath: path });
+              }
+      );
+    });
+
+    uploaded.push({
+      name: file.name,
+      type: file.type || "",
+      size: file.size || 0,
+      url: result.url,
+      storagePath: result.storagePath,
+      createdAt: nowIso()
+    });
+  }
+
+  return uploaded;
+}
+
+/********************************************************
  * TABS
  ********************************************************/
 function initTabsOnce() {
-  if (listenersAttached.tabs) return;
-  listenersAttached.tabs = true;
+  if (listeners.tabs) return;
+  listeners.tabs = true;
 
   document.querySelectorAll(".tabs button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -201,16 +295,21 @@ function initTabsOnce() {
       if (btn.dataset.tab === "registry") renderRegistry();
       if (btn.dataset.tab === "new") refreshNewForm();
       if (btn.dataset.tab === "settings") renderSettings();
+      if (btn.dataset.tab === "procedures") {
+        renderProceduresFilters();
+        renderProceduresList();
+        refreshProcedureFormOptions();
+      }
     });
   });
 }
 
 /********************************************************
- * NEW ACTIVITY FORM
+ * COMMON SELECT RENDER
  ********************************************************/
 function renderModelSelect(sel, list) {
   sel.innerHTML = "";
-  list.forEach((m) => sel.appendChild(new Option(m, m)));
+  (list || []).forEach((m) => sel.appendChild(new Option(m, m)));
 }
 
 function renderOptions(sel, list, emptyLabel) {
@@ -225,6 +324,9 @@ function renderOptions(sel, list, emptyLabel) {
   list.forEach((v) => sel.appendChild(new Option(v, v)));
 }
 
+/********************************************************
+ * NEW ACTIVITY FORM
+ ********************************************************/
 function refreshNewForm() {
   if (!$("n-date").value) $("n-date").value = ymd(new Date());
 
@@ -240,8 +342,8 @@ function refreshNewForm() {
 }
 
 function initNewFormOnce() {
-  if (listenersAttached.modelNew) return;
-  listenersAttached.modelNew = true;
+  if (listeners.newform) return;
+  listeners.newform = true;
 
   $("n-model").addEventListener("change", refreshNewForm);
 
@@ -256,21 +358,20 @@ function initNewFormOnce() {
                                  abilitazione: $("n-abilitazione").value,
                                  timeDeci: toDeci($("n-timeDeci").value),
                                  notes: norm($("n-notes").value),
-                                 createdAt: new Date().toISOString()
+                                 createdAt: nowIso()
     };
 
     if (!a.date || !a.model || !a.trainId || !a.scadenza || !a.abilitazione) {
       return alert("Compila tutti i campi obbligatori.");
     }
-    if (a.timeDeci === null) return alert("Tempo non valido (es. 0.5, 1.2).");
+    if (a.timeDeci === null) return alert("Tempo non valido.");
 
     await addActivity(a);
 
     $("form-new").reset();
     $("n-date").value = ymd(new Date());
-
-    // mantieni modello corrente
     refreshNewForm();
+
     renderCalendar();
     renderRegistry();
   });
@@ -291,7 +392,6 @@ function buildByDate() {
 
 function renderCalendar() {
   $("cal-month-label").textContent = monthLabel(currentMonth);
-
   const grid = $("calendar-grid");
   grid.innerHTML = "";
 
@@ -303,7 +403,6 @@ function renderCalendar() {
   const startWeekday = (firstDay.getDay() + 6) % 7; // lun=0
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // header giorni
   ["L", "M", "M", "G", "V", "S", "D"].forEach((w) => {
     const h = document.createElement("div");
     h.className = "cal-header-cell";
@@ -311,7 +410,6 @@ function renderCalendar() {
     grid.appendChild(h);
   });
 
-  // vuoti
   for (let i = 0; i < startWeekday; i++) {
     const e = document.createElement("div");
     e.className = "cal-cell";
@@ -319,7 +417,6 @@ function renderCalendar() {
     grid.appendChild(e);
   }
 
-  // giorni
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const list = byDate[dateStr] || [];
@@ -337,7 +434,7 @@ function renderCalendar() {
     cell.addEventListener("click", () => {
       selectedDay = dateStr;
       showDaySummary(dateStr, list);
-      renderCalendar(); // evidenzia selezione
+      renderCalendar();
     });
 
     grid.appendChild(cell);
@@ -395,8 +492,8 @@ function showDaySummary(dateStr, list) {
 }
 
 function initCalendarOnce() {
-  if (listenersAttached.calendar) return;
-  listenersAttached.calendar = true;
+  if (listeners.calendar) return;
+  listeners.calendar = true;
 
   $("cal-prev").addEventListener("click", () => {
     currentMonth.setMonth(currentMonth.getMonth() - 1);
@@ -410,7 +507,6 @@ function initCalendarOnce() {
     renderCalendar();
   });
 
-  // delega azioni nella tabella del giorno
   $("cal-day-activities").addEventListener("click", async (e) => {
     const btn = e.target.closest("button[data-action]");
     if (!btn) return;
@@ -434,15 +530,13 @@ function initCalendarOnce() {
 }
 
 /********************************************************
- * REGISTRY (✅ RIPARATO)
+ * REGISTRY
  ********************************************************/
 function renderRegistryModelFilter() {
   const sel = $("r-filter-model");
   const current = sel.value || "";
   sel.innerHTML = `<option value="">Tutti</option>`;
-  settings.models.forEach((m) => {
-    sel.appendChild(new Option(m, m));
-  });
+  settings.models.forEach((m) => sel.appendChild(new Option(m, m)));
   sel.value = current;
 }
 
@@ -489,18 +583,16 @@ function renderRegistry() {
 }
 
 function initRegistryOnce() {
-  if (listenersAttached.registry) return;
-  listenersAttached.registry = true;
+  if (listeners.registry) return;
+  listeners.registry = true;
 
   $("r-apply").addEventListener("click", renderRegistry);
-
   $("r-reset").addEventListener("click", () => {
     $("r-filter-model").value = "";
     $("r-filter-train").value = "";
     renderRegistry();
   });
 
-  // azioni edit/delete
   $("registry-rows").addEventListener("click", async (e) => {
     const btn = e.target.closest("button[data-action]");
     if (!btn) return;
@@ -524,10 +616,9 @@ function initRegistryOnce() {
 }
 
 /********************************************************
- * SETTINGS (salva davvero)
+ * SETTINGS
  ********************************************************/
 function renderSettings() {
-  // lista modelli (solo visuale)
   $("s-models-list").innerHTML = "";
   settings.models.forEach((m) => {
     const li = document.createElement("li");
@@ -535,7 +626,6 @@ function renderSettings() {
     $("s-models-list").appendChild(li);
   });
 
-  // select modello matricole
   const sel = $("s-train-model");
   sel.innerHTML = "";
   settings.models.forEach((m) => sel.appendChild(new Option(m, m)));
@@ -547,7 +637,6 @@ function renderSettings() {
 function renderSettingsLists() {
   const model = $("s-train-model").value || settings.models[0];
 
-  // matricole
   $("s-trains-list").innerHTML = "";
   (settings.trains[model] || []).forEach((t) => {
     const li = document.createElement("li");
@@ -555,7 +644,6 @@ function renderSettingsLists() {
     $("s-trains-list").appendChild(li);
   });
 
-  // scadenze
   $("s-scads-list").innerHTML = "";
   settings.scadenze.forEach((s) => {
     const li = document.createElement("li");
@@ -563,7 +651,6 @@ function renderSettingsLists() {
     $("s-scads-list").appendChild(li);
   });
 
-  // abilitazioni
   $("s-abils-list").innerHTML = "";
   settings.abilitazioni.forEach((a) => {
     const li = document.createElement("li");
@@ -573,8 +660,8 @@ function renderSettingsLists() {
 }
 
 function initSettingsOnce() {
-  if (listenersAttached.settings) return;
-  listenersAttached.settings = true;
+  if (listeners.settings) return;
+  listeners.settings = true;
 
   $("s-train-model").addEventListener("change", renderSettingsLists);
 
@@ -591,6 +678,8 @@ function initSettingsOnce() {
     $("s-train-name").value = "";
     renderSettingsLists();
     refreshNewForm();
+    refreshProcedureFormOptions();
+    renderProceduresFilters();
   });
 
   $("s-add-scad").addEventListener("click", async () => {
@@ -604,6 +693,8 @@ function initSettingsOnce() {
     $("s-scad-name").value = "";
     renderSettingsLists();
     refreshNewForm();
+    refreshProcedureFormOptions();
+    renderProceduresFilters();
   });
 
   $("s-add-abil").addEventListener("click", async () => {
@@ -621,7 +712,7 @@ function initSettingsOnce() {
 }
 
 /********************************************************
- * EDIT MODAL (modifica/elimina)
+ * EDIT MODAL (attività)
  ********************************************************/
 function openEditModal(a) {
   $("edit-msg").textContent = "";
@@ -630,7 +721,6 @@ function openEditModal(a) {
   $("e-id").value = a.id;
   $("e-date").value = a.date || ymd(new Date());
 
-  // modello
   renderModelSelect($("e-model"), settings.models);
   $("e-model").value = a.model || settings.models[0];
 
@@ -660,8 +750,8 @@ function refreshEditOptions() {
 }
 
 function initModalOnce() {
-  if (listenersAttached.modal) return;
-  listenersAttached.modal = true;
+  if (listeners.modal) return;
+  listeners.modal = true;
 
   $("e-model").addEventListener("change", refreshEditOptions);
 
@@ -689,7 +779,8 @@ function initModalOnce() {
                                   scadenza: $("e-scadenza").value,
                                   abilitazione: $("e-abilitazione").value,
                                   timeDeci: toDeci($("e-timeDeci").value),
-                                  notes: norm($("e-notes").value)
+                                  notes: norm($("e-notes").value),
+                                  updatedAt: nowIso()
     };
 
     if (!patch.date || !patch.model || !patch.trainId || !patch.scadenza || !patch.abilitazione) {
@@ -701,6 +792,292 @@ function initModalOnce() {
     closeEditModal();
     renderCalendar();
     renderRegistry();
+  });
+}
+
+/********************************************************
+ * PROCEDURES UI
+ ********************************************************/
+function refreshProcedureFormOptions() {
+  renderModelSelect($("p-model"), settings.models);
+  if (!$("p-model").value) $("p-model").value = settings.models[0] || "E464";
+
+  renderOptions($("p-scadenza"), settings.scadenze, "Nessuna scadenza");
+}
+
+function renderProceduresFilters() {
+  const mSel = $("pf-model");
+  const sSel = $("pf-scadenza");
+  const curM = mSel.value || "";
+  const curS = sSel.value || "";
+
+  mSel.innerHTML = `<option value="">Tutti</option>`;
+  settings.models.forEach(m => mSel.appendChild(new Option(m, m)));
+  mSel.value = curM;
+
+  sSel.innerHTML = `<option value="">Tutte</option>`;
+  settings.scadenze.forEach(s => sSel.appendChild(new Option(s, s)));
+  sSel.value = curS;
+}
+
+function getFilteredProcedures() {
+  const fm = norm($("pf-model").value);
+  const fs = norm($("pf-scadenza").value);
+  const q = norm($("pf-q").value);
+
+  return procedures
+  .filter(p => {
+    let ok = true;
+    if (fm) ok = ok && p.model === fm;
+    if (fs) ok = ok && p.scadenza === fs;
+    if (q) ok = ok && (containsCI(p.title, q) || containsCI(p.body, q));
+    return ok;
+  })
+  .sort((a, b) => (a.updatedAt || a.createdAt || "") < (b.updatedAt || b.createdAt || "") ? 1 : -1);
+}
+
+function renderProceduresList() {
+  const tbody = $("proc-rows");
+  tbody.innerHTML = "";
+
+  const list = getFilteredProcedures();
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5">Nessuna procedura.</td></tr>`;
+    return;
+  }
+
+  list.forEach(p => {
+    const updated = (p.updatedAt || p.createdAt || "").slice(0, 10);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+    <td>${p.model || ""}</td>
+    <td>${p.scadenza || ""}</td>
+    <td>${p.title || ""}</td>
+    <td>${updated}</td>
+    <td>
+    <button type="button" class="secondary" data-action="open" data-id="${p.id}">Apri</button>
+    <button type="button" class="danger" data-action="del" data-id="${p.id}">🗑️</button>
+    </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function setProcedureForm(p) {
+  $("p-id").value = p?.id || "";
+  $("p-title").value = p?.title || "";
+  $("p-body").value = p?.body || "";
+
+  refreshProcedureFormOptions();
+  if (p?.model) $("p-model").value = p.model;
+  if (p?.scadenza) $("p-scadenza").value = p.scadenza;
+
+  renderProcedureAttachments(p?.attachments || []);
+  $("p-delete").classList.toggle("hidden", !p?.id);
+}
+
+function clearProcedureForm() {
+  $("p-id").value = "";
+  $("p-title").value = "";
+  $("p-body").value = "";
+  $("p-file").value = "";
+  $("p-upload-status").textContent = "";
+  $("p-progress-wrap").classList.add("hidden");
+  $("p-progress-bar").style.width = "0%";
+  refreshProcedureFormOptions();
+  renderProcedureAttachments([]);
+  $("p-delete").classList.add("hidden");
+}
+
+function renderProcedureAttachments(list) {
+  const ul = $("p-attachments");
+  ul.innerHTML = "";
+
+  if (!list || list.length === 0) {
+    const li = document.createElement("li");
+    li.className = "att-empty";
+    li.textContent = "Nessun allegato.";
+    ul.appendChild(li);
+    return;
+  }
+
+  list.forEach((a, idx) => {
+    const li = document.createElement("li");
+    li.className = "att-item";
+    li.innerHTML = `
+    <div class="att-left">
+    <div class="att-name">${a.name || "file"}</div>
+    <div class="att-meta">${(a.type || "").slice(0, 30)} • ${a.size ? Math.round(a.size/1024) : 0} KB</div>
+    <a class="att-link" href="${a.url}" target="_blank" rel="noopener">Apri</a>
+    </div>
+    <button type="button" class="danger" data-action="rm-att" data-idx="${idx}">Rimuovi</button>
+    `;
+    ul.appendChild(li);
+  });
+}
+
+function initProceduresOnce() {
+  if (listeners.procedures) return;
+  listeners.procedures = true;
+
+  $("pf-apply").addEventListener("click", renderProceduresList);
+  $("pf-reset").addEventListener("click", () => {
+    $("pf-model").value = "";
+    $("pf-scadenza").value = "";
+    $("pf-q").value = "";
+    renderProceduresList();
+  });
+
+  $("proc-rows").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn) return;
+
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+
+    if (action === "open") {
+      const p = procedures.find(x => x.id === id);
+      if (p) setProcedureForm(p);
+    }
+
+    if (action === "del") {
+      const ok = confirm("Eliminare questa procedura (e gli allegati)?");
+      if (!ok) return;
+      await deleteProcedure(id);
+      clearProcedureForm();
+      renderProceduresList();
+    }
+  });
+
+  $("p-clear").addEventListener("click", clearProcedureForm);
+
+  $("form-proc").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const id = norm($("p-id").value);
+    const model = $("p-model").value;
+    const scadenza = $("p-scadenza").value;
+    const title = norm($("p-title").value);
+    const body = norm($("p-body").value);
+
+    if (!model || !scadenza || !title) {
+      return alert("Modello, Scadenza e Titolo sono obbligatori.");
+    }
+
+    const existing = id ? procedures.find(x => x.id === id) : null;
+    const patch = {
+      model,
+      scadenza,
+      title,
+      body,
+      updatedAt: nowIso()
+    };
+
+    if (!id) {
+      const newDoc = {
+        ...patch,
+        attachments: [],
+        createdAt: nowIso()
+      };
+      const newId = await addProcedure(newDoc);
+      const p = procedures.find(x => x.id === newId);
+      setProcedureForm(p);
+    } else {
+      await updateProcedure(id, patch);
+      const p = procedures.find(x => x.id === id);
+      setProcedureForm(p);
+    }
+
+    renderProceduresList();
+  });
+
+  $("p-delete").addEventListener("click", async () => {
+    const id = norm($("p-id").value);
+    if (!id) return;
+    const ok = confirm("Eliminare questa procedura (e gli allegati)?");
+    if (!ok) return;
+    await deleteProcedure(id);
+    clearProcedureForm();
+    renderProceduresList();
+  });
+
+  $("p-upload").addEventListener("click", async () => {
+    const files = $("p-file").files;
+    if (!files || files.length === 0) return alert("Seleziona almeno un file.");
+
+    let id = norm($("p-id").value);
+    if (!id) {
+      // se non esiste procedura, la creiamo al volo per avere un procId
+      const model = $("p-model").value;
+      const scadenza = $("p-scadenza").value;
+      const title = norm($("p-title").value) || "Senza titolo";
+      const body = norm($("p-body").value);
+
+      if (!model || !scadenza) return alert("Seleziona Modello e Scadenza prima di caricare.");
+      const newDoc = {
+        model, scadenza, title, body,
+        attachments: [],
+        createdAt: nowIso(),
+                                 updatedAt: nowIso()
+      };
+      id = await addProcedure(newDoc);
+      const p = procedures.find(x => x.id === id);
+      setProcedureForm(p);
+      renderProceduresList();
+    }
+
+    $("p-upload-status").textContent = "Upload in corso...";
+    $("p-progress-wrap").classList.remove("hidden");
+    $("p-progress-bar").style.width = "0%";
+
+    try {
+      const uploaded = await uploadFilesToProcedure(id, Array.from(files), (pct, name) => {
+        $("p-progress-bar").style.width = `${pct}%`;
+        $("p-upload-status").textContent = `Caricamento: ${pct}% (${name})`;
+      });
+
+      const p = procedures.find(x => x.id === id);
+      const next = [...(p.attachments || []), ...uploaded];
+
+      await updateProcedure(id, { attachments: next, updatedAt: nowIso() });
+      $("p-file").value = "";
+
+      $("p-upload-status").textContent = "Upload completato.";
+      $("p-progress-bar").style.width = "100%";
+
+      setProcedureForm(procedures.find(x => x.id === id));
+      renderProceduresList();
+    } catch (err) {
+      console.error(err);
+      $("p-upload-status").textContent = "Errore upload.";
+      alert("Errore durante upload. Controlla regole Storage e login.");
+    }
+  });
+
+  $("p-attachments").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-action='rm-att']");
+    if (!btn) return;
+
+    const id = norm($("p-id").value);
+    if (!id) return;
+
+    const idx = Number(btn.dataset.idx);
+    const p = procedures.find(x => x.id === id);
+    if (!p || !Array.isArray(p.attachments) || idx < 0 || idx >= p.attachments.length) return;
+
+    const ok = confirm("Rimuovere questo allegato? Verrà eliminato anche da Storage.");
+    if (!ok) return;
+
+    const att = p.attachments[idx];
+    if (att && att.storagePath) {
+      try { await storage.ref(att.storagePath).delete(); } catch (_) {}
+    }
+
+    const next = p.attachments.filter((_, i) => i !== idx);
+    await updateProcedure(id, { attachments: next, updatedAt: nowIso() });
+
+    setProcedureForm(procedures.find(x => x.id === id));
+    renderProceduresList();
   });
 }
 
@@ -724,16 +1101,23 @@ auth.onAuthStateChanged(async (user) => {
   initSettingsOnce();
   initModalOnce();
   initNewFormOnce();
+  initProceduresOnce();
 
   await loadSettings(user.uid);
   await loadActivities(user.uid);
+  await loadProcedures(user.uid);
 
-  // init new form selects (una volta)
+  // init new activity form
   renderModelSelect($("n-model"), settings.models);
   $("n-model").value = settings.models[0] || "E464";
-
   $("n-date").value = ymd(new Date());
   refreshNewForm();
+
+  // init procedures form/options
+  refreshProcedureFormOptions();
+  renderProceduresFilters();
+  renderProceduresList();
+  clearProcedureForm();
 
   renderSettings();
   renderRegistry();
