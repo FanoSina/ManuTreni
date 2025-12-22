@@ -1,107 +1,382 @@
 <!doctype html>
 <html lang="it">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>ManuTreni</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="theme-color" content="#111827" />
 </head>
+
 <body>
+  <!-- AUTH -->
+  <section id="auth-screen" class="auth">
+    <div class="card auth-card">
+      <h1>ManuTreni</h1>
+      <p class="muted">Accedi o registrati</p>
 
-<!-- LOGIN -->
-<section id="auth" class="center">
-  <div class="card">
-    <h1>ManuTreni</h1>
-    <input id="email" type="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-    <button id="login">Accedi</button>
-    <button id="register">Registrati</button>
-    <p id="auth-msg"></p>
-  </div>
-</section>
+      <label>Email
+        <input id="auth-email" type="email" autocomplete="email" />
+      </label>
 
-<!-- APP -->
-<section id="app" class="hidden">
-  <header>
-    <h2>ManuTreni</h2>
-    <button id="logout">Logout</button>
-  </header>
+      <label>Password
+        <input id="auth-password" type="password" autocomplete="current-password" />
+      </label>
 
-  <nav class="tabs">
-    <button data-tab="calendar" class="active">Calendario</button>
-    <button data-tab="new">Nuova attività</button>
-    <button data-tab="registry">Registro</button>
-    <button data-tab="procedures">Procedure</button>
-    <button data-tab="settings">Impostazioni</button>
-  </nav>
+      <div class="row">
+        <button id="btn-login" type="button">Accedi</button>
+        <button id="btn-register" type="button" class="secondary">Registrati</button>
+      </div>
 
-  <main>
-    <section id="calendar" class="tab active">
-      <h3>Calendario</h3>
-      <div id="calendar-grid"></div>
-      <h4 id="day-title"></h4>
-      <ul id="day-list"></ul>
-    </section>
+      <p id="auth-msg" class="status"></p>
+    </div>
+  </section>
 
-    <section id="new" class="tab">
-      <h3>Nuova attività</h3>
-      <input type="date" id="a-date">
-      <select id="a-model"></select>
-      <select id="a-train"></select>
-      <select id="a-scad"></select>
-      <select id="a-abil"></select>
-      <input id="a-time" placeholder="Decimi (es. 1.2)">
-      <textarea id="a-notes" placeholder="Note"></textarea>
-      <button id="save-activity">Salva</button>
-    </section>
+  <!-- APP -->
+  <section id="app" class="hidden">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-title">ManuTreni</div>
+        <div class="brand-sub" id="user-email"></div>
+      </div>
+      <button id="btn-logout" type="button" class="secondary">Logout</button>
+    </header>
 
-    <section id="registry" class="tab">
-      <h3>Registro</h3>
-      <ul id="registry-list"></ul>
-    </section>
+    <nav class="tabs">
+      <button data-tab="calendar" class="active">Calendario</button>
+      <button data-tab="new">Nuova attività</button>
+      <button data-tab="registry">Registro</button>
+      <button data-tab="procedures">Procedure</button>
+      <button data-tab="settings">Impostazioni</button>
+    </nav>
 
-    <section id="procedures" class="tab">
-      <h3>Procedure manutentive</h3>
-      <select id="p-model"></select>
-      <select id="p-scad"></select>
-      <input id="p-title" placeholder="Titolo">
-      <textarea id="p-body" placeholder="Procedura"></textarea>
-      <button id="save-procedure">Salva procedura</button>
-      <ul id="procedure-list"></ul>
-    </section>
+    <main class="container">
+      <!-- CALENDARIO -->
+      <section id="tab-calendar" class="tab active">
+        <div class="row between">
+          <h2>Calendario attività</h2>
+          <button id="btn-day-add" type="button" class="secondary">+ Aggiungi attività</button>
+        </div>
 
-    <section id="settings" class="tab">
-      <h3>Impostazioni</h3>
+        <div class="calendar-header">
+          <button id="cal-prev" type="button" class="secondary">‹</button>
+          <div id="cal-month-label" class="cal-label"></div>
+          <button id="cal-next" type="button" class="secondary">›</button>
+        </div>
 
-      <h4>Modelli</h4>
-      <input id="s-model"><button id="add-model">+</button>
-      <ul id="models-list"></ul>
+        <div id="calendar-grid" class="calendar-grid"></div>
 
-      <h4>Matricole</h4>
-      <select id="s-model-train"></select>
-      <input id="s-train"><button id="add-train">+</button>
-      <ul id="trains-list"></ul>
+        <div class="card">
+          <h3 id="cal-day-title">Seleziona un giorno</h3>
+          <p class="muted small">Totale ore (decimi): <strong id="cal-day-hours">0.0</strong></p>
 
-      <h4>Scadenze</h4>
-      <input id="s-scad"><button id="add-scad">+</button>
-      <ul id="scads-list"></ul>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Modello</th>
+                  <th>Matricola</th>
+                  <th>Scadenza</th>
+                  <th>Abilitazione</th>
+                  <th>Decimi</th>
+                  <th>Note</th>
+                  <th>Azioni</th>
+                </tr>
+              </thead>
+              <tbody id="cal-day-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-      <h4>Abilitazioni</h4>
-      <input id="s-abil"><button id="add-abil">+</button>
-      <ul id="abils-list"></ul>
+      <!-- NUOVA ATTIVITÀ -->
+      <section id="tab-new" class="tab">
+        <h2>Nuova attività</h2>
 
-      <h4>Backup</h4>
-      <button id="backup">Backup</button>
-      <input type="file" id="restore">
-      <button id="restore-btn">Ripristina</button>
-    </section>
-  </main>
-</section>
+        <form id="form-new-activity" class="card form">
+          <label>Data
+            <input id="a-date" type="date" required />
+          </label>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="app.js"></script>
+          <label>Modello
+            <select id="a-model" required></select>
+          </label>
+
+          <label>Matricola
+            <select id="a-trainId" required></select>
+          </label>
+
+          <label>Scadenza
+            <select id="a-scadenza" required></select>
+          </label>
+
+          <label>Abilitazione
+            <select id="a-abilitazione" required></select>
+          </label>
+
+          <label>Tempo (decimi)
+            <input id="a-timeDeci" type="text" placeholder="es. 0.5, 1.2, 2.0" required />
+          </label>
+
+          <label>Note
+            <textarea id="a-notes" rows="2" placeholder="(opzionale)"></textarea>
+          </label>
+
+          <div class="row">
+            <button type="submit">Salva</button>
+            <button id="btn-new-clear" type="button" class="secondary">Pulisci</button>
+            <span id="a-status" class="status"></span>
+          </div>
+
+          <p class="hint">Le voci si gestiscono in “Impostazioni”.</p>
+        </form>
+      </section>
+
+      <!-- REGISTRO -->
+      <section id="tab-registry" class="tab">
+        <h2>Registro treni</h2>
+
+        <div class="card">
+          <div class="filters">
+            <label>Modello
+              <select id="r-filter-model">
+                <option value="">Tutti</option>
+              </select>
+            </label>
+
+            <label>Matricola
+              <input id="r-filter-trainId" type="text" placeholder="cerca matricola..." />
+            </label>
+
+            <label>Dal
+              <input id="r-from" type="date" />
+            </label>
+
+            <label>Al
+              <input id="r-to" type="date" />
+            </label>
+
+            <div class="row">
+              <button id="r-apply" type="button">Filtra</button>
+              <button id="r-reset" type="button" class="secondary">Reset</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Modello</th>
+                  <th>Matricola</th>
+                  <th>Scadenza</th>
+                  <th>Abilitazione</th>
+                  <th>Decimi</th>
+                  <th>Note</th>
+                  <th>Azioni</th>
+                </tr>
+              </thead>
+              <tbody id="registry-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROCEDURE -->
+      <section id="tab-procedures" class="tab">
+        <h2>Procedure manutentive</h2>
+
+        <div class="grid-2">
+          <!-- FORM -->
+          <form id="form-procedure" class="card form">
+            <input id="p-id" type="hidden" />
+
+            <label>Modello
+              <select id="p-model" required></select>
+            </label>
+
+            <label>Tipo scadenza
+              <select id="p-scadenza" required></select>
+            </label>
+
+            <label>Titolo
+              <input id="p-title" type="text" required placeholder="es. Reset SCMT dopo intervento" />
+            </label>
+
+            <label>Procedura / Note
+              <textarea id="p-body" rows="9" placeholder="Scrivi qui la procedura..."></textarea>
+            </label>
+
+            <div class="row">
+              <button type="submit" id="p-save">Salva procedura</button>
+              <button type="button" id="p-clear" class="secondary">Pulisci</button>
+              <button type="button" id="p-delete" class="danger hidden">Elimina</button>
+            </div>
+
+            <p id="p-status" class="status"></p>
+          </form>
+
+          <!-- LISTA -->
+          <div class="card">
+            <h3 class="h3">Lista procedure</h3>
+
+            <div class="filters">
+              <label>Modello
+                <select id="pf-model">
+                  <option value="">Tutti</option>
+                </select>
+              </label>
+
+              <label>Scadenza
+                <select id="pf-scadenza">
+                  <option value="">Tutte</option>
+                </select>
+              </label>
+
+              <label>Ricerca
+                <input id="pf-q" type="text" placeholder="titolo o testo..." />
+              </label>
+
+              <div class="row">
+                <button id="pf-apply" type="button">Applica</button>
+                <button id="pf-reset" type="button" class="secondary">Reset</button>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Modello</th>
+                    <th>Scadenza</th>
+                    <th>Titolo</th>
+                    <th>Agg.</th>
+                    <th>Azioni</th>
+                  </tr>
+                </thead>
+                <tbody id="proc-rows"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- IMPOSTAZIONI -->
+      <section id="tab-settings" class="tab">
+        <h2>Impostazioni</h2>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3 class="h3">Modelli</h3>
+            <div class="row">
+              <input id="s-model-name" type="text" placeholder="es. ETR104" />
+              <button id="s-add-model" type="button">Aggiungi</button>
+            </div>
+            <ul id="s-models-list" class="list"></ul>
+          </div>
+
+          <div class="card">
+            <h3 class="h3">Matricole (per modello)</h3>
+            <label>Modello
+              <select id="s-train-model"></select>
+            </label>
+            <div class="row">
+              <input id="s-train-name" type="text" placeholder="es. 464-012" />
+              <button id="s-add-train" type="button">Aggiungi</button>
+            </div>
+            <ul id="s-trains-list" class="list"></ul>
+          </div>
+
+          <div class="card">
+            <h3 class="h3">Scadenze</h3>
+            <div class="row">
+              <input id="s-scad-name" type="text" placeholder="es. Controllo mensile" />
+              <button id="s-add-scad" type="button">Aggiungi</button>
+            </div>
+            <ul id="s-scads-list" class="list"></ul>
+          </div>
+
+          <div class="card">
+            <h3 class="h3">Abilitazioni</h3>
+            <div class="row">
+              <input id="s-abil-name" type="text" placeholder="es. Verifica VT3" />
+              <button id="s-add-abil" type="button">Aggiungi</button>
+            </div>
+            <ul id="s-abils-list" class="list"></ul>
+          </div>
+
+          <div class="card">
+            <h3 class="h3">Backup / Ripristino</h3>
+            <p class="muted small">Backup include: impostazioni + attività + procedure.</p>
+
+            <div class="row">
+              <button id="btn-backup" type="button">Scarica backup (.json)</button>
+              <input id="restore-file" type="file" accept="application/json" />
+              <button id="btn-restore" type="button" class="danger">Ripristina</button>
+            </div>
+
+            <p id="backup-status" class="status"></p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- MODAL MODIFICA ATTIVITÀ -->
+    <div id="modal-overlay" class="modal-overlay hidden"></div>
+    <div id="edit-modal" class="modal hidden">
+      <div class="card modal-content">
+        <h2>Modifica attività</h2>
+
+        <form id="form-edit-activity" class="form">
+          <input id="e-id" type="hidden" />
+
+          <label>Data
+            <input id="e-date" type="date" required />
+          </label>
+
+          <label>Modello
+            <select id="e-model" required></select>
+          </label>
+
+          <label>Matricola
+            <select id="e-trainId" required></select>
+          </label>
+
+          <label>Scadenza
+            <select id="e-scadenza" required></select>
+          </label>
+
+          <label>Abilitazione
+            <select id="e-abilitazione" required></select>
+          </label>
+
+          <label>Tempo (decimi)
+            <input id="e-timeDeci" type="text" required />
+          </label>
+
+          <label>Note
+            <textarea id="e-notes" rows="2"></textarea>
+          </label>
+
+          <div class="row">
+            <button type="submit">Salva</button>
+            <button id="e-cancel" type="button" class="secondary">Annulla</button>
+            <button id="e-delete" type="button" class="danger">Elimina</button>
+          </div>
+
+          <p id="edit-status" class="status"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Firebase v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <script src="app.js"></script>
 </body>
 </html>

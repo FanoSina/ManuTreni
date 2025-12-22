@@ -2,5 +2,8 @@
   "name": "ManuTreni",
   "short_name": "ManuTreni",
   "start_url": ".",
-  "display": "standalone"
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#111827",
+  "icons": []
 }
